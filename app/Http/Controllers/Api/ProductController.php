@@ -10,7 +10,7 @@ class ProductController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Product::with('category');
+        $query = Product::with('category')->where('is_archived', false);
 
         if ($request->filled('category')) {
             $query->whereHas('category', function ($q) use ($request) {
@@ -39,7 +39,9 @@ class ProductController extends Controller
 
     public function show($id)
     {
-        $product = Product::with(['category', 'seller:id,name,email'])->find($id);
+        $product = Product::with(['category', 'seller:id,name,email'])
+            ->where('is_archived', false)
+            ->find($id);
         if (!$product) {
             return response()->json(['message' => 'Product not found'], 404);
         }

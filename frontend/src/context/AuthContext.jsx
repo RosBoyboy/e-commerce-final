@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import {
-  api,
   setAuthToken,
   loginRequest,
   registerRequest,
@@ -24,7 +23,8 @@ export function AuthProvider({ children }) {
   );
   const [loading, setLoading] = useState(true);
 
-  // Set auth header + persist token when it changes
+  // useEffect (not useLayoutEffect): Next.js renders AuthProvider on the server too; layout effects warn on SSR.
+  // Token is also applied synchronously in api.js (localStorage) and in login/register (setAuthToken).
   useEffect(() => {
     setAuthToken(token);
     if (typeof window !== 'undefined') {
@@ -60,6 +60,7 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     const { data } = await loginRequest({ email, password });
+    setAuthToken(data.token);
     setToken(data.token);
     setUser(data.user);
     return data;
@@ -83,6 +84,7 @@ export function AuthProvider({ children }) {
       phone,
       address,
     });
+    setAuthToken(data.token);
     setToken(data.token);
     setUser(data.user);
     return data;

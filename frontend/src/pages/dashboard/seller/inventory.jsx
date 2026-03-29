@@ -7,6 +7,7 @@ import {
   fetchCategories,
   createSellerProduct,
   deleteSellerProduct,
+  fetchSellerOrders,
 } from '@/services/api';
 import { productImageUrl } from '@/utils/image';
 import styles from '@/styles/sellerPortal.module.scss';
@@ -15,6 +16,9 @@ const emptyProduct = { name: '', description: '', price: '', stock: '', category
 
 export default function SellerInventory() {
   const [products, setProducts] = useState([]);
+  const [completedOrders, setCompletedOrders] = useState([]);
+  const [selectedCompletedOrder, setSelectedCompletedOrder] = useState(null);
+  const [showAllCompletedOrders, setShowAllCompletedOrders] = useState(false);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -25,6 +29,7 @@ export default function SellerInventory() {
   const [form, setForm] = useState(emptyProduct);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState('');
+  const [stockEdits, setStockEdits] = useState({});
 
   useEffect(() => {
     load();
@@ -33,9 +38,10 @@ export default function SellerInventory() {
   const load = async () => {
     setLoading(true);
     try {
-      const [productsRes, catRes] = await Promise.all([
+      const [productsRes, catRes, ordersRes] = await Promise.all([
         fetchSellerProducts(),
         fetchCategories().catch(() => ({ data: [] })),
+        fetchSellerOrders().catch(() => ({ data: { orders: [] } })),
       ]);
       const rawProducts = productsRes.data.products || [];
       setProducts(
@@ -48,10 +54,30 @@ export default function SellerInventory() {
         })),
       );
       setCategories(Array.isArray(catRes.data) ? catRes.data : catRes.data?.data || []);
+      const allOrders = ordersRes.data?.orders || [];
+      const delivered = allOrders.filter((o) => {
+        const s = (o.status || '').toLowerCase();
+        return s === 'delivered' || s === 'completed';
+      });
+      setCompletedOrders(delivered);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const persistStockChange = async (product, newStock) => {
+    try {
+      await updateSellerProduct(product.id, { stock: newStock });
+      setStockEdits((prev) => {
+        const next = { ...prev };
+        delete next[product.id];
+        return next;
+      });
+      await load();
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -114,13 +140,9 @@ export default function SellerInventory() {
   };
 
   const handleStockChange = async (product, delta) => {
-    const newStock = Math.max(0, (product.stock ?? 0) + delta);
-    try {
-      await updateSellerProduct(product.id, { stock: newStock });
-      await load();
-    } catch (err) {
-      console.error(err);
-    }
+    const base = stockEdits[product.id] ?? product.stock ?? 0;
+    const newStock = Math.max(0, base + delta);
+    await persistStockChange(product, newStock);
   };
 
   const handleDelete = async (p) => {
@@ -155,6 +177,176 @@ export default function SellerInventory() {
           + Quick Add Product
         </button>
       </div>
+
+      <div className={styles.card}>
+        <div className={styles.cardHeader}>
+          <h2>Completed Orders</h2>
+          <button
+            type="button"
+            className={styles.secondaryButton}
+            style={{ padding: '6px 14px', fontSize: 13 }}
+            onClick={() => setShowAllCompletedOrders(true)}
+          >
+            View completed orders
+          </button>
+        </div>
+        <div className={styles.cardBody} style={{ paddingTop: 16 }}>
+          {loading ? (
+            <p className={styles.emptyState}>Loading...</p>
+          ) : completedOrders.length === 0 ? (
+            <div className={styles.emptyState} style={{ padding: 20 }}>
+              <p style={{ margin: 0 }}>No completed orders yet.</p>
+              <p style={{ margin: '6px 0 0', fontSize: 13, color: '#94a3b8' }}>Delivered orders will appear here.</p>
+            </div>
+          ) : (
+            <>
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+              {completedOrders.slice(0, 5).map((o) => {
+                const firstItem = (o.items || [])[0];
+                const total = (o.items || []).reduce((s, i) => s + (parseFloat(i.price) || 0) * (i.quantity || 1), 0);
+                return (
+                  <li
+                    key={o.id}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
+                    onClick={() => setSelectedCompletedOrder(o)}
+                  >
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: 14, color: '#0f172a' }}>#{o.order_number || o.id}</div>
+                      <div style={{ fontSize: 12, color: '#94a3b8' }}>{o.created_at ? new Date(o.created_at).toLocaleDateString() : ''}</div>
+                      <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <img
+                          src={productImageUrl(firstItem?.product?.image) || 'https://placehold.co/36x36'}
+                          alt=""
+                          width={28}
+                          height={28}
+                          style={{ borderRadius: 6, objectFit: 'cover' }}
+                          onError={(e) => { e.target.src = 'https://placehold.co/36x36'; }}
+                        />
+                        <span style={{ fontSize: 12, color: '#475569' }}>
+                          {firstItem?.product?.name || 'Product'}
+                        </span>
+                      </div>
+                    </div>
+                    <span className={`${styles.badge} ${styles.green}`}>Delivered</span>
+                    <div style={{ fontWeight: 700, color: '#0f172a' }}>₱{total.toFixed(2)}</div>
+                  </li>
+                );
+              })}
+            </ul>
+            {completedOrders.length > 5 && (
+              <p style={{ margin: '12px 0 0', fontSize: 13, fontWeight: 500, color: '#64748b' }}>
+                Showing 5 of {completedOrders.length} — use &quot;View completed orders&quot; for the full list.
+              </p>
+            )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {showAllCompletedOrders && (
+        <div className={styles.modalOverlay} onClick={() => setShowAllCompletedOrders(false)}>
+          <div className={styles.modal} style={{ maxWidth: 720 }} onClick={(e) => e.stopPropagation()}>
+            <h2 className={styles.modalTitle}>All completed orders</h2>
+            <p style={{ marginTop: -8, color: '#64748b', fontSize: 13, marginBottom: 14 }}>
+              Total completed orders: {completedOrders.length}
+            </p>
+            {completedOrders.length === 0 ? (
+              <p className={styles.emptyState}>No completed orders yet.</p>
+            ) : (
+              <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                  {completedOrders.map((o) => {
+                    const firstItem = (o.items || [])[0];
+                    const total = (o.items || []).reduce((s, i) => s + (parseFloat(i.price) || 0) * (i.quantity || 1), 0);
+                    return (
+                      <li
+                        key={`all-${o.id}`}
+                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
+                        onClick={() => {
+                          setSelectedCompletedOrder(o);
+                          setShowAllCompletedOrders(false);
+                        }}
+                      >
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: 14, color: '#0f172a' }}>#{o.order_number || o.id}</div>
+                          <div style={{ fontSize: 12, color: '#94a3b8' }}>{o.created_at ? new Date(o.created_at).toLocaleDateString() : ''}</div>
+                          <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <img
+                              src={productImageUrl(firstItem?.product?.image) || 'https://placehold.co/36x36'}
+                              alt=""
+                              width={28}
+                              height={28}
+                              style={{ borderRadius: 6, objectFit: 'cover' }}
+                              onError={(e) => { e.target.src = 'https://placehold.co/36x36'; }}
+                            />
+                            <span style={{ fontSize: 12, color: '#475569' }}>
+                              {firstItem?.product?.name || 'Product'}
+                            </span>
+                          </div>
+                        </div>
+                        <span className={`${styles.badge} ${styles.green}`}>Delivered</span>
+                        <div style={{ fontWeight: 700, color: '#0f172a' }}>₱{total.toFixed(2)}</div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+            <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+              <button type="button" className={styles.secondaryButton} onClick={() => setShowAllCompletedOrders(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedCompletedOrder && (
+        <div className={styles.modalOverlay} onClick={() => setSelectedCompletedOrder(null)}>
+          <div className={styles.modal} style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
+            <h2 className={styles.modalTitle}>Completed order details</h2>
+            <p style={{ marginTop: -8, color: '#64748b', fontSize: 13 }}>
+              #{selectedCompletedOrder.order_number || selectedCompletedOrder.id}
+            </p>
+            {(selectedCompletedOrder.items || []).map((item) => (
+              <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                  <img
+                    src={productImageUrl(item.product?.image) || 'https://placehold.co/48x48'}
+                    alt=""
+                    width={48}
+                    height={48}
+                    style={{ borderRadius: 8, objectFit: 'cover' }}
+                    onError={(e) => { e.target.src = 'https://placehold.co/48x48'; }}
+                  />
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, color: '#0f172a' }}>{item.product?.name || 'Product'}</div>
+                    <div style={{ fontSize: 12, color: '#64748b' }}>Qty {item.quantity || 1}</div>
+                  </div>
+                </div>
+                <div style={{ fontWeight: 700, color: '#0f172a' }}>
+                  ₱{((parseFloat(item.price) || 0) * (item.quantity || 1)).toFixed(2)}
+                </div>
+              </div>
+            ))}
+            {selectedCompletedOrder.received_by && (
+              <div style={{ marginTop: 12, fontSize: 14, color: '#334155' }}>
+                <strong>Received by:</strong> {selectedCompletedOrder.received_by}
+              </div>
+            )}
+            {selectedCompletedOrder.customer_feedback && (
+              <div style={{ marginTop: 8, fontSize: 14, color: '#334155', whiteSpace: 'pre-wrap' }}>
+                <strong>Customer feedback:</strong> {selectedCompletedOrder.customer_feedback}
+              </div>
+            )}
+            <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+              <button type="button" className={styles.secondaryButton} onClick={() => setSelectedCompletedOrder(null)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
         <input
@@ -229,7 +421,23 @@ export default function SellerInventory() {
                       <td>
                         <div className={styles.stockControl}>
                           <button type="button" onClick={() => handleStockChange(p, -1)} aria-label="Decrease stock">−</button>
-                          <input type="number" min={0} value={p.stock ?? 0} readOnly />
+                          <input
+                            type="number"
+                            min={0}
+                            value={stockEdits[p.id] ?? (p.stock ?? 0)}
+                            onChange={(e) => {
+                              const raw = e.target.value;
+                              const parsed = parseInt(raw, 10);
+                              const safe = Number.isNaN(parsed) ? 0 : Math.max(0, parsed);
+                              setStockEdits((prev) => ({ ...prev, [p.id]: safe }));
+                            }}
+                            onBlur={async (e) => {
+                              const parsed = parseInt(e.target.value, 10);
+                              const safe = Number.isNaN(parsed) ? 0 : Math.max(0, parsed);
+                              if (safe === (p.stock ?? 0)) return;
+                              await persistStockChange(p, safe);
+                            }}
+                          />
                           <button type="button" onClick={() => handleStockChange(p, 1)} aria-label="Increase stock">+</button>
                         </div>
                         {(p.stock ?? 0) <= 5 && (p.stock ?? 0) > 0 && <div style={{ fontSize: 12, color: '#d97706', marginTop: 4 }}>Low Stock</div>}

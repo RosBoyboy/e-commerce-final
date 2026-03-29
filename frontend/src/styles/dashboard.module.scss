@@ -373,6 +373,94 @@
   max-width: 600px;
 }
 
+.profileLayout {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.profileSidebar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.profileAvatarCircle {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #111827;
+  color: #f9fafb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 22px;
+}
+
+.profileMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.profileName {
+  font-weight: 600;
+  font-size: 18px;
+  color: #111827;
+}
+
+.profileSince {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.profileColumns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.profileCard {
+  background: #ffffff;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  padding: 20px 20px 18px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+}
+
+.profileCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+
+  h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+  }
+  p {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: #6b7280;
+  }
+}
+
+.profileFormRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.profileActions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+
 .formGroup {
   margin-bottom: 20px;
 
@@ -522,6 +610,1641 @@
   text-transform: capitalize;
 }
 
+/* Admin SaaS UI — full-height shell (matches seller portal layout) */
+$admin-sidebar-w: 260px;
+
+.adminProShell {
+  min-height: 100vh;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  position: relative;
+}
+
+.adminPro {
+  background: radial-gradient(1200px 700px at 0% -10%, rgba(37, 99, 235, 0.10), transparent 55%),
+              radial-gradient(900px 580px at 100% 0%, rgba(139, 92, 246, 0.10), transparent 50%),
+              #f4f6fb;
+  font-family: Inter, Poppins, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+.adminSidebarFixed {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 40;
+  width: $admin-sidebar-w;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.12);
+}
+
+.adminSidebarBrand {
+  padding: 24px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.adminSidebarLogo {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  display: block;
+  background: linear-gradient(135deg, #fff 0%, #c7d2fe 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.adminSidebarPortalLabel {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.adminSidebarStoreLink {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(147, 197, 253, 0.95);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.adminSidebarStoreLink:hover {
+  color: #fff;
+}
+
+.adminSidebarBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 12px 12px;
+}
+
+.adminSidebarFooter {
+  flex-shrink: 0;
+  padding: 12px 12px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.adminMainWrap {
+  margin-left: $admin-sidebar-w;
+  min-height: 100vh;
+  padding: 24px 28px 48px;
+  max-width: 1440px;
+  box-sizing: border-box;
+}
+
+.adminPro .adminSidebarFixed .accountSection {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.adminPro .adminSidebarFixed .filterSectionPro {
+  margin-bottom: 0;
+}
+
+.adminPro .adminSidebarFooter .logoutBtn {
+  width: 100%;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 10px;
+}
+
+.adminPro button,
+.adminPro .navItemPro,
+.adminPro a {
+  transition: all 0.3s ease;
+}
+
+.adminPro .navItemPro.active {
+  background: linear-gradient(135deg, #2563eb, #8b5cf6);
+  color: #fff;
+  box-shadow: 0 14px 28px rgba(59, 130, 246, 0.34), inset 3px 0 0 #7dd3fc;
+}
+
+.adminPro .navItemPro {
+  color: rgba(226, 232, 240, 0.9);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.adminPro .navItemPro:hover {
+  background: rgba(59, 130, 246, 0.18);
+  color: #fff;
+}
+
+.adminNavIcon {
+  width: 20px;
+  height: 20px;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.adminPro .navItemPro.active .adminNavIcon {
+  color: #2563eb;
+}
+
+.adminPro .adminNavMessagesLink {
+  text-decoration: none;
+  color: rgba(226, 232, 240, 0.9);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+}
+
+.adminPro .adminNavMessagesLink:hover {
+  background: rgba(59, 130, 246, 0.18);
+  color: #fff;
+}
+
+.adminNavMessagesIconWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.adminNavMsgBadge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.95);
+}
+
+.adminPro .logoutBtn .adminNavIcon {
+  color: #fca5a5;
+}
+
+.adminPro .sectionTitle {
+  color: rgba(148, 163, 184, 0.92);
+}
+
+.adminPro .logoutBtn {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fecaca;
+}
+
+.adminPro .logoutBtn:hover {
+  background: rgba(239, 68, 68, 0.35);
+}
+
+.adminPro .mainPro {
+  min-width: 0;
+}
+
+.adminSidebarBackdrop {
+  display: none;
+}
+
+.adminSidebarBackdropVisible {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  background: rgba(15, 23, 42, 0.5);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.adminMobileBar {
+  display: none;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0 0 1rem;
+  padding: 0.25rem 0;
+}
+
+.adminMenuBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  cursor: pointer;
+  color: #0f172a;
+}
+
+.adminMobileBrand {
+  font-weight: 800;
+  font-size: 1rem;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+  text-decoration: none;
+}
+
+@media (max-width: 1024px) {
+  .adminProShell .adminSidebarFixed {
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+  }
+
+  .adminProShell .adminSidebarOpen {
+    transform: translateX(0);
+  }
+
+  .adminMainWrap {
+    margin-left: 0;
+    max-width: none;
+    padding: 16px 16px 32px;
+  }
+
+  .adminMobileBar {
+    display: flex;
+  }
+}
+
+@media (max-width: 900px) {
+  .adminSidebarFixed {
+    width: min(280px, 88vw);
+  }
+}
+
+.adminTopBar {
+  position: sticky;
+  top: 8px;
+  z-index: 5;
+  margin-bottom: 14px;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(255, 255, 255, 0.58);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.08);
+}
+
+.adminSearchWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: #fff;
+  border-radius: 10px;
+  padding: 9px 10px;
+  color: #64748b;
+}
+
+.adminSearchWrap input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  background: transparent;
+  color: #0f172a;
+}
+
+.adminPro .card {
+  border-radius: 14px;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.06);
+}
+
+/* Admin Settings — dark matte shell (charcoal + slate cards) */
+.adminPro .card.adminSettingsDarkPage {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 16px;
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.45);
+  backdrop-filter: none;
+}
+
+.adminSettingsPageHeader {
+  padding: 32px 32px 24px;
+  border-bottom: 1px solid #334155;
+}
+
+.adminSettingsPageHeader h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #f8fafc;
+  letter-spacing: -0.02em;
+}
+
+.adminSettingsSubtitle {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #94a3b8;
+}
+
+.adminSettingsPageBody {
+  padding: 32px;
+}
+
+.adminPro .card.adminSettingsDarkPage .adminSettingsShell {
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.adminPro .card.adminSettingsDarkPage .adminSettingsTabs {
+  border-color: #334155;
+  background: rgba(15, 23, 42, 0.65);
+}
+
+.adminPro .card.adminSettingsDarkPage .adminSettingsCard {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: none;
+  backdrop-filter: blur(12px);
+}
+
+.adminPro .card.adminSettingsDarkPage .adminSettingsSectionTitle {
+  color: #94a3b8;
+}
+
+.adminPro .card.adminSettingsDarkPage .formGroup input:not([type='color']),
+.adminPro .card.adminSettingsDarkPage .formGroup textarea,
+.adminPro .card.adminSettingsDarkPage .formGroup select {
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid #334155;
+  color: #f8fafc;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 12px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.adminPro .card.adminSettingsDarkPage .formGroup input:focus,
+.adminPro .card.adminSettingsDarkPage .formGroup textarea:focus,
+.adminPro .card.adminSettingsDarkPage .formGroup select:focus {
+  border-color: rgba(59, 130, 246, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.adminPro .card.adminSettingsDarkPage .formGroup input:disabled,
+.adminPro .card.adminSettingsDarkPage .formGroup textarea:disabled,
+.adminPro .card.adminSettingsDarkPage .formGroup select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.adminPro .card.adminSettingsDarkPage .formGroup input[type='color'] {
+  height: 44px;
+  padding: 4px;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  background: #1e293b;
+  cursor: pointer;
+}
+
+.adminPro .card.adminSettingsDarkPage .adminToggle {
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid #334155;
+}
+
+.adminPro .card.adminSettingsDarkPage .adminColorPreview {
+  border: 1px solid #334155;
+}
+
+.adminPro .card.adminSettingsDarkPage .adminLogoBox {
+  border-color: #334155;
+}
+
+.adminPro .card.adminSettingsDarkPage .adminSearchWrap {
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid #334155;
+  border-radius: 12px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.adminPro .card.adminSettingsDarkPage .adminSearchWrap input {
+  color: #f8fafc;
+}
+
+.adminPro .card.adminSettingsDarkPage .adminSearchWrap input::placeholder {
+  color: #64748b;
+}
+
+.adminPro .card.adminSettingsDarkPage .adminSearchWrap svg {
+  color: #94a3b8;
+}
+
+.adminPro .card.adminSettingsDarkPage .adminBatchBar {
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid #334155;
+}
+
+.adminPro .card.adminSettingsDarkPage .adminBatchHint {
+  color: #94a3b8;
+}
+
+.adminPro .card.adminSettingsDarkPage .usersTable {
+  border: 1px solid #334155;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.adminPro .card.adminSettingsDarkPage .usersTable table thead {
+  background: rgba(30, 41, 59, 0.98);
+}
+
+.adminPro .card.adminSettingsDarkPage .usersTable table thead th {
+  color: #f8fafc;
+  border-bottom: 1px solid #334155;
+  font-weight: 700;
+}
+
+.adminPro .card.adminSettingsDarkPage .usersTable table tbody td {
+  color: #e2e8f0;
+}
+
+.adminPro .card.adminSettingsDarkPage .usersTable table tbody tr {
+  border-bottom: 1px solid #334155;
+}
+
+.adminPro .card.adminSettingsDarkPage .usersTable table tbody tr:nth-child(even) {
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.adminPro .card.adminSettingsDarkPage .usersTable table tbody tr:hover {
+  background: rgba(37, 99, 235, 0.12);
+}
+
+.adminPro .card.adminSettingsDarkPage .adminArchiveSection {
+  border-bottom-color: #334155;
+}
+
+.adminPro .card.adminSettingsDarkPage .emptyState {
+  color: #94a3b8;
+}
+
+.adminSettingsMuted {
+  margin: 0;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.adminSettingsStrongMini {
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: #f8fafc;
+}
+
+.adminDangerTitle {
+  font-weight: 800;
+  margin-bottom: 4px;
+  color: #f8fafc;
+}
+
+.adminDangerDesc {
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.45;
+}
+
+.adminPro .card.adminSettingsDarkPage .adminDangerZone {
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: rgba(127, 29, 29, 0.22);
+}
+
+.adminPro .card.adminSettingsDarkPage .adminSettingsFooter {
+  margin-top: 28px;
+  padding-top: 8px;
+}
+
+.adminPro .card.adminSettingsDarkPage .adminSaveBtn {
+  background: linear-gradient(135deg, #2563eb 0%, #6366f1 45%, #8b5cf6 100%);
+  box-shadow:
+    0 0 0 1px rgba(59, 130, 246, 0.25),
+    0 10px 36px rgba(99, 102, 241, 0.35);
+}
+
+.adminPro .card.adminSettingsDarkPage .adminGhostBtn {
+  border-color: #334155;
+  background: rgba(30, 41, 59, 0.6);
+  color: #e2e8f0;
+}
+
+.adminArchiveIconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid #334155;
+  background: rgba(15, 23, 42, 0.45);
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.adminArchiveIconBtn:hover {
+  transform: translateY(-1px);
+}
+
+.adminArchiveIconBtn:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.55);
+  outline-offset: 2px;
+}
+
+.adminArchiveIconBtnRestore {
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.adminArchiveIconBtnRestore:hover {
+  background: rgba(37, 99, 235, 0.22);
+  border-color: rgba(96, 165, 250, 0.55);
+}
+
+.adminArchiveIconBtnDelete {
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.4);
+}
+
+.adminArchiveIconBtnDelete:hover {
+  background: rgba(185, 28, 28, 0.2);
+  border-color: rgba(248, 113, 113, 0.55);
+}
+
+.adminPro .formGroup input,
+.adminPro .formGroup textarea,
+.adminPro .formGroup select{
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(2, 6, 23, 0.35);
+  color: rgba(226, 232, 240, 0.92);
+  padding: 12px 12px;
+}
+.adminPro .formGroup textarea{resize: vertical}
+.adminPro .formGroup input:focus,
+.adminPro .formGroup textarea:focus,
+.adminPro .formGroup select:focus{
+  outline: none;
+  border-color: rgba(59, 130, 246, 0.55);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18), 0 0 20px rgba(59, 130, 246, 0.15);
+}
+
+.adminStatsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.adminStatCard {
+  border-radius: 15px;
+  padding: 16px 16px 14px;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.18);
+}
+
+.adminStatSales {
+  background: linear-gradient(135deg, #0ea5e9, #4f46e5);
+}
+.adminStatOrders {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+}
+.adminStatUsers {
+  background: linear-gradient(135deg, #111827, #334155);
+}
+
+.adminStatTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.adminStatIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.18);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.adminStatSpark {
+  width: 120px;
+  opacity: 0.9;
+}
+
+.adminStatValue {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.adminStatTrendIcon {
+  width: 16px;
+  height: 16px;
+  vertical-align: -2px;
+}
+.adminStatLabel {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0.95;
+}
+.adminStatMeta {
+  margin-top: 2px;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.adminStatusPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: capitalize;
+  border: 1px solid transparent;
+}
+.adminStatusPending {
+  background: rgba(148, 163, 184, 0.18);
+  color: #334155;
+  border-color: rgba(148, 163, 184, 0.25);
+}
+.adminStatusShipped {
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+  border-color: rgba(59, 130, 246, 0.22);
+}
+.adminStatusDelivered {
+  background: rgba(34, 197, 94, 0.14);
+  color: #15803d;
+  border-color: rgba(34, 197, 94, 0.24);
+}
+.adminStatusCancelled {
+  background: rgba(239, 68, 68, 0.12);
+  color: #b91c1c;
+  border-color: rgba(239, 68, 68, 0.22);
+}
+
+.adminIconBtn {
+  width: 38px;
+  height: 34px;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.8);
+  color: #0f172a;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 0;
+  overflow: visible;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.adminIconBtn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.10);
+  background: #fff;
+}
+
+.adminActionText {
+  opacity: 0;
+  pointer-events: none;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 700;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translate(-50%, 4px);
+  background: rgba(15, 23, 42, 0.95);
+  color: #f8fafc;
+  padding: 4px 8px;
+  border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(2, 6, 23, 0.32);
+  z-index: 20;
+}
+
+.adminIconBtn:hover .adminActionText {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.adminIconBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.adminIconDanger {
+  color: #dc2626;
+  border-color: rgba(239, 68, 68, 0.22);
+}
+
+.adminProductImg {
+  border-radius: 999px;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.10);
+}
+
+.adminStock {
+  font-weight: 700;
+}
+.adminStockLow {
+  color: #d97706;
+  font-weight: 800;
+}
+.adminStockZero {
+  color: #dc2626;
+}
+
+.adminLowStockLabel {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #b45309;
+  background: rgba(251, 191, 36, 0.22);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.adminPro .usersTable {
+  box-shadow: none;
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  border-radius: 14px;
+}
+
+.adminPro .usersTable table thead {
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.adminPro .usersTable table thead th {
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+.adminPro .usersTable table tbody tr {
+  border-bottom: 1px solid rgba(241, 245, 249, 0.9);
+}
+
+.adminPro .usersTable table tbody tr:nth-child(even) {
+  background: rgba(248, 250, 252, 0.55);
+}
+
+.adminPro .usersTable table tbody tr:hover {
+  background: rgba(239, 246, 255, 0.75);
+}
+
+.adminAnalyticsHero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.adminAnalyticsTitle {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.adminAnalyticsSubtitle {
+  margin-top: 2px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.adminTrendBadge {
+  background: linear-gradient(135deg, #e0e7ff, #ede9fe);
+  color: #4338ca;
+  border-radius: 999px;
+}
+
+.adminAnalyticsChart {
+  height: 320px;
+  border-radius: 14px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+  padding: 12px;
+}
+
+.adminEmptyState {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px dashed rgba(99, 102, 241, 0.35);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.10), rgba(14, 165, 233, 0.06));
+}
+.adminEmptyIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: rgba(79, 70, 229, 0.12);
+  color: #4f46e5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.adminEmptyTitle {
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+.adminEmptyText {
+  margin-top: 2px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+/* Admin Settings */
+.adminSettingsTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.25);
+  margin-bottom: 16px;
+}
+.adminSettingsShell{
+  padding: 18px;
+  border-radius: 18px;
+  background: radial-gradient(1200px 600px at 20% 0%, rgba(99,102,241,0.20), transparent 55%),
+              radial-gradient(900px 500px at 85% 20%, rgba(14,165,233,0.16), transparent 55%),
+              rgba(2, 6, 23, 0.86);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  box-shadow: 0 30px 80px rgba(2, 6, 23, 0.55);
+}
+.adminSettingsTab {
+  border: none;
+  background: transparent;
+  color: rgba(226, 232, 240, 0.78);
+  font-weight: 700;
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.adminSettingsTabActive {
+  background: linear-gradient(135deg, #2563eb, #8b5cf6);
+  color: #fff;
+  box-shadow: 0 0 0 1px rgba(59,130,246,0.22), 0 0 26px rgba(59, 130, 246, 0.35);
+}
+.adminTabIcon{opacity:.9}
+
+.adminTableSearchRow {
+  margin-bottom: 14px;
+}
+
+/* Admin — Orders page header & stat cards */
+.adminPro .adminOrdersPageHeading {
+  margin-bottom: 32px;
+}
+
+.adminPro .adminOrdersHeroTitle {
+  font-family: 'Montserrat', 'Inter', system-ui, sans-serif;
+  font-weight: 800;
+  font-size: clamp(1.75rem, 2.4vw, 2.125rem);
+  letter-spacing: -0.03em;
+  color: #0f172a;
+}
+
+.adminOrdersShell {
+  border-radius: 16px;
+}
+
+.adminOrdersBody {
+  padding: 24px;
+}
+
+.adminOrderTabBar {
+  display: flex;
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  margin-bottom: 22px;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.adminOrderTabBtn {
+  flex: 1;
+  padding: 14px 12px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-weight: 600;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.22s ease;
+  border-radius: 12px 12px 0 0;
+}
+
+.adminOrderTabBtn:hover {
+  color: #334155;
+}
+
+.adminOrderTabBtnActive {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.adminOrderTabSlider {
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 50%;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(90deg, #0ea5e9, #2563eb);
+  box-shadow: 0 0 16px rgba(14, 165, 233, 0.45), 0 0 24px rgba(37, 99, 235, 0.35);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+.adminOrderTabSlider[data-tab='history'] {
+  transform: translateX(100%);
+}
+
+.adminOrderStatGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.adminOrderStatCard {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 16px 18px;
+  text-align: left;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #f8fafc;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    box-shadow 0.22s ease,
+    transform 0.22s ease,
+    border-color 0.22s ease;
+}
+
+.adminOrderStatCard:hover {
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  transform: translateY(-2px);
+}
+
+.adminOrderStatCard:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.adminOrderStatCardSelected {
+  border-color: #2563eb;
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.1),
+    0 0 0 3px rgba(37, 99, 235, 0.22);
+}
+
+.adminOrderStatIconWrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+}
+
+.adminOrderStatIconWrap svg {
+  flex-shrink: 0;
+}
+
+.adminOrderStatIconWrapPending {
+  background: rgba(245, 158, 11, 0.18);
+  color: #d97706;
+}
+
+.adminOrderStatIconWrapConfirmed {
+  background: rgba(37, 99, 235, 0.12);
+  color: #2563eb;
+}
+
+.adminOrderStatIconWrapProcessing {
+  background: linear-gradient(135deg, #a855f7 0%, #6366f1 50%, #3b82f6 100%);
+  color: #fff;
+}
+
+.adminOrderStatIconWrapShipped {
+  background: rgba(16, 185, 129, 0.16);
+  color: #059669;
+}
+
+.adminOrderStatText {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+
+.adminOrderStatCount {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.15;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.adminOrderStatLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: capitalize;
+}
+
+.adminOrderRiderCell {
+  min-width: 140px;
+}
+
+.adminOrderRiderLabel {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.adminOrderRiderSelect {
+  max-width: 200px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  font-size: 13px;
+  font-family: inherit;
+  background: #fff;
+  color: #0f172a;
+}
+
+.adminOrderRiderName {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  color: #0f172a;
+}
+
+.adminOrderRiderDetail {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 14px 0 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%);
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
+}
+
+.adminOrderRiderDetailTitle {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.adminOrderRiderDetailName {
+  font-weight: 800;
+  font-size: 15px;
+  margin: 2px 0 4px;
+}
+
+.adminOrderRiderDetailMeta {
+  font-size: 13px;
+  color: #475569;
+}
+
+.adminRiderManageList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.adminRiderManageCard {
+  padding: 18px;
+  border-radius: 12px;
+  border: 1px solid #334155;
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.adminRiderManageHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.adminRiderManageEmail {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.adminRiderManageFields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 900px) {
+  .adminRiderManageFields {
+    grid-template-columns: 1fr;
+  }
+}
+
+.adminRiderStatusDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.adminRiderStatusDotAvailable {
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
+}
+
+.adminRiderStatusDotBusy {
+  background: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25);
+}
+
+@media (max-width: 1100px) {
+  .adminOrderStatGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .adminOrderStatGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .adminOrdersBody {
+    padding: 20px 16px;
+  }
+}
+
+.adminBatchBar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(37, 99, 235, 0.06);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.adminBatchHint {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.adminTableCheckbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #2563eb;
+}
+
+.adminBtnArchive {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  background: rgba(239, 246, 255, 0.98);
+  color: #1d4ed8;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.adminBtnArchive:hover {
+  background: rgba(219, 234, 254, 1);
+}
+
+.adminBtnRestore {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(96, 165, 250, 0.5);
+  background: rgba(219, 234, 254, 0.75);
+  color: #1e40af;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.adminBtnRestore:hover {
+  background: rgba(191, 219, 254, 0.95);
+}
+
+.adminBtnDeleteSoft {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(248, 113, 113, 0.5);
+  background: rgba(254, 226, 226, 0.85);
+  color: #b91c1c;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.adminBtnDeleteSoft:hover {
+  background: rgba(254, 202, 202, 0.95);
+}
+
+.adminArchiveRecovery {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.adminArchiveSection {
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.adminArchiveSection:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.adminArchiveHeading {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: rgba(248, 250, 252, 0.96);
+}
+
+.adminArchiveHint {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: rgba(148, 163, 184, 0.92);
+}
+
+.adminSettingsGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.adminSettingsCard {
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 20px;
+  box-shadow: 0 0 0 1px rgba(99,102,241,0.05), 0 22px 60px rgba(0,0,0,0.35);
+  backdrop-filter: blur(10px);
+}
+.adminSettingsSectionTitle {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(226, 232, 240, 0.72);
+  margin-bottom: 12px;
+}
+.adminTwoCol {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+}
+.adminLogoBox {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px dashed rgba(59, 130, 246, 0.35);
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.16), rgba(139, 92, 246, 0.10));
+  height: fit-content;
+}
+.adminLogoPreview {
+  width: 92px;
+  height: 92px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: rgba(226, 232, 240, 0.9);
+  font-weight: 900;
+}
+.adminLogoPreview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.adminFileBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.35);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  color: rgba(226, 232, 240, 0.92);
+  font-weight: 800;
+  cursor: pointer;
+}
+.adminFileBtn input {
+  display: none;
+}
+.adminColorPreview {
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 800;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+}
+.adminSaveBtn {
+  border: none;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 900;
+  color: #fff;
+  background: linear-gradient(135deg, #2563eb, #8b5cf6);
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.18), 0 0 34px rgba(139, 92, 246, 0.25);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.adminSaveBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.adminBtnSpinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 2px solid rgba(255,255,255,0.45);
+  border-top-color: rgba(255,255,255,1);
+  animation: adminSpin 0.8s linear infinite;
+}
+@keyframes adminSpin { to { transform: rotate(360deg); } }
+
+.adminGhostBtn{
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 900;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.22);
+  color: rgba(226, 232, 240, 0.92);
+  cursor: pointer;
+}
+.adminGhostBtn:hover:not(:disabled){
+  box-shadow: 0 0 18px rgba(59,130,246,0.20);
+}
+.adminGhostBtn:disabled{opacity:.55;cursor:not-allowed}
+
+.adminSettingsFooter{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  margin-top:16px;
+}
+
+.adminLabel{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:8px;
+  color: rgba(226, 232, 240, 0.92);
+}
+.adminLabelIcon{
+  width:28px;
+  height:28px;
+  border-radius: 10px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background: rgba(37, 99, 235, 0.18);
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  color: rgba(191, 219, 254, 0.95);
+}
+
+.adminToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  margin-bottom: 10px;
+}
+.adminToggleLabel {
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(226, 232, 240, 0.92);
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.adminToggleIcon{
+  width:28px;
+  height:28px;
+  border-radius: 10px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.16);
+  color: rgba(167, 243, 208, 0.95);
+}
+.adminToggleTrack {
+  position: relative;
+  width: 56px;
+  height: 34px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.35);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+.adminToggleTrack input {
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+  position: absolute;
+  inset: 0;
+}
+.adminToggleThumb {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.18);
+  transition: transform 0.18s ease;
+}
+.adminToggleTrack[data-checked='1'] {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  box-shadow: 0 0 0 1px rgba(34,197,94,0.20), 0 0 26px rgba(34, 197, 94, 0.30);
+}
+.adminToggleTrack[data-checked='1'] .adminToggleThumb {
+  transform: translateX(22px);
+}
+
+.adminDangerZone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 2px solid rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.10);
+}
+.adminDangerBtn {
+  border: none;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 900;
+  background: #dc2626;
+  color: #fff;
+  cursor: pointer;
+}
+.adminDangerBtn:hover {
+  background: #b91c1c;
+}
+
+@media (max-width: 1024px) {
+  .adminSettingsPageHeader,
+  .adminSettingsPageBody {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+  .adminSettingsPageHeader {
+    padding-top: 24px;
+  }
+  .adminSettingsPageBody {
+    padding-bottom: 24px;
+  }
+  .adminSettingsGrid {
+    grid-template-columns: 1fr;
+  }
+  .adminTwoCol {
+    grid-template-columns: 1fr;
+  }
+  .adminLogoBox {
+    grid-template-columns: 72px 1fr;
+  }
+  .adminLogoPreview {
+    width: 72px;
+    height: 72px;
+  }
+}
+@media (max-width: 1024px) {
+  .adminStatsGrid {
+    grid-template-columns: 1fr;
+  }
+  .adminStatSpark {
+    width: 140px;
+  }
+}
+
 .settingsForm {
   background: white;
   padding: 30px;
@@ -563,6 +2286,171 @@
     margin: 0 0 20px 0;
     font-size: 20px;
     color: #333;
+  }
+}
+
+/* Premium confirm-delivery modal */
+.receiveOverlay {
+  background: rgba(2, 6, 23, 0.46);
+  backdrop-filter: blur(8px);
+}
+
+.receiveModal {
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.88), rgba(248, 250, 252, 0.82));
+  box-shadow: 0 28px 80px rgba(2, 6, 23, 0.35);
+}
+
+.receiveModalTitle {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+
+.receiveModalSubtitle {
+  margin: 6px 0 18px;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.receiveFormGroup label {
+  font-weight: 600;
+  color: #334155;
+}
+
+.receiveInput,
+.receiveTextarea {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 14px;
+  color: #0f172a;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.receiveTextarea {
+  resize: vertical;
+  min-height: 94px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #f8fafc, #f1f5f9);
+}
+
+.receiveInput:focus,
+.receiveTextarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2), 0 0 24px rgba(59, 130, 246, 0.2);
+}
+
+.receiveActions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+.receiveConfirmBtn {
+  border: none;
+  border-radius: 12px;
+  padding: 11px 16px;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+
+.receiveConfirmBtn:hover:not(:disabled) {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 16px 34px rgba(37, 99, 235, 0.45);
+  filter: saturate(1.04);
+}
+
+.receiveConfirmBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.receiveCancelBtn {
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-weight: 600;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.receiveCancelBtn:hover:not(:disabled) {
+  color: #334155;
+}
+
+.receiveCancelBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.receiveSuccessWrap {
+  position: relative;
+  text-align: center;
+  padding: 14px 8px 8px;
+}
+
+.receiveSuccessIcon {
+  width: 62px;
+  height: 62px;
+  margin: 10px auto 12px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  box-shadow: 0 16px 34px rgba(34, 197, 94, 0.35);
+}
+
+.receiveSuccessWrap h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.receiveSuccessWrap p {
+  margin: 8px 0 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.receiveConfetti {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 160px;
+  height: 16px;
+  transform: translateX(-50%);
+  background:
+    radial-gradient(circle, #60a5fa 0 2px, transparent 2.5px) 0 0 / 32px 16px repeat-x,
+    radial-gradient(circle, #a78bfa 0 2px, transparent 2.5px) 16px 6px / 32px 16px repeat-x,
+    radial-gradient(circle, #f472b6 0 2px, transparent 2.5px) 8px 3px / 32px 16px repeat-x;
+  animation: confettiFade 0.8s ease-out both;
+}
+
+@keyframes confettiFade {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
   }
 }
 
@@ -750,16 +2638,60 @@
 
 .sortRowPro {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
-  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+  margin-bottom: 1.5rem;
+  padding: 0.65rem 0.85rem;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+}
 
-  select {
-    padding: 8px 32px 8px 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    font-size: 14px;
-    background: #fff;
-    cursor: pointer;
+.sortRowLabel {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin: 0;
+  white-space: nowrap;
+}
+
+$sort-chevron: '%3Csvg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg"%3E%3Cpath d="M1 1.5L6 6.5L11 1.5" stroke="%232563eb" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/%3E%3C/svg%3E';
+
+.sortRowSelect {
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 200px;
+  max-width: 100%;
+  padding: 0.6rem 2.35rem 0.6rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: Inter, system-ui, sans-serif;
+  color: #0f172a;
+  background-color: #f8fafc;
+  background-image: url('data:image/svg+xml;charset=UTF-8,#{$sort-chevron}');
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 12px 8px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+
+  &:hover {
+    border-color: #cbd5e1;
+    background-color: #fff;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: #2563eb;
+    background-color: #fff;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
   }
 }
 
@@ -932,4 +2864,789 @@
   .productGridPro {
     grid-template-columns: 1fr;
   }
+}
+
+/* —— Customer boutique shell: full-height midnight sidebar + main —— */
+$unxt-midnight: #111827;
+$unxt-accent: #2563eb;
+$unxt-radius: 14px;
+
+.customerApp {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: #f1f5f9;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+}
+
+.customerSidebarBackdrop {
+  display: none;
+}
+
+.customerSidebarBackdropVisible {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  background: rgba(15, 23, 42, 0.45);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.customerSidebarFixed {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 40;
+  width: 260px;
+  display: flex;
+  flex-direction: column;
+  background: $unxt-midnight;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 4px 0 32px rgba(0, 0, 0, 0.18);
+}
+
+.customerSidebarBrand {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 1.25rem 1.25rem 1rem;
+  color: #f9fafb;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.customerSidebarBrandN {
+  font-weight: 900;
+  color: $unxt-accent;
+}
+
+.customerNav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0.75rem 0.65rem;
+  flex-shrink: 0;
+}
+
+.customerNavItem {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: $unxt-radius;
+  color: rgba(249, 250, 251, 0.72);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
+  }
+
+  svg {
+    flex-shrink: 0;
+    opacity: 0.9;
+  }
+}
+
+.customerNavItemActive {
+  background: rgba(37, 99, 235, 0.22);
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.35);
+
+  svg {
+    color: #93c5fd;
+  }
+}
+
+.customerNavIconWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.customerNavMsgBadge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #667eea;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.95);
+}
+
+.customerSidebarScroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 0.85rem 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin-top: 0.35rem;
+  padding-top: 0.85rem;
+
+  .sectionTitle,
+  .filterSectionPro .sectionTitle {
+    color: rgba(249, 250, 251, 0.45);
+  }
+
+  .navItemPro,
+  .filterSectionPro {
+    color: rgba(249, 250, 251, 0.85);
+  }
+
+  .categoryList label {
+    color: rgba(249, 250, 251, 0.8);
+  }
+
+  .sizeDropdown,
+  .priceInputs input {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.12);
+    color: #f9fafb;
+    border-radius: $unxt-radius;
+  }
+
+  .colorDot {
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+}
+
+.customerSidebarFooter {
+  flex-shrink: 0;
+  padding: 0.75rem 0.85rem 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.customerLogoutBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.65rem 1rem;
+  border: none;
+  border-radius: $unxt-radius;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(249, 250, 251, 0.85);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+
+  &:hover {
+    background: rgba(239, 68, 68, 0.2);
+    color: #fecaca;
+  }
+}
+
+.customerMain {
+  margin-left: 260px;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 1.75rem 1.75rem 2.5rem;
+  max-width: 1200px;
+}
+
+.customerMobileBar {
+  display: none;
+  align-items: center;
+  gap: 0.75rem;
+  margin: -0.5rem -0.5rem 1rem;
+  padding: 0.5rem 0.25rem;
+}
+
+.customerMenuBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: $unxt-radius;
+  background: #fff;
+  color: $unxt-midnight;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
+  cursor: pointer;
+}
+
+.customerMobileBrand {
+  font-weight: 700;
+  color: $unxt-midnight;
+  text-decoration: none;
+  letter-spacing: -0.02em;
+}
+
+.customerPageHeading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+
+  h1 {
+    font-size: 1.65rem;
+    font-weight: 700;
+    margin: 0 0 0.35rem;
+    color: $unxt-midnight;
+    letter-spacing: -0.03em;
+  }
+
+  .subtitle {
+    font-size: 0.95rem;
+    font-weight: 400;
+    color: #64748b;
+    margin: 0;
+    line-height: 1.5;
+  }
+}
+
+.customerPageHeadingText {
+  min-width: 0;
+  flex: 1;
+}
+
+.customerHeadingCart {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #fff;
+  color: $unxt-accent;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.07);
+  text-decoration: none;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(37, 99, 235, 0.15);
+    border-color: rgba(37, 99, 235, 0.35);
+    color: #1d4ed8;
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+  }
+}
+
+.customerHeadingCartIcon {
+  display: block;
+}
+
+.customerHeadingCartBadge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: $unxt-accent;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  box-shadow: 0 0 0 2px #fff;
+  pointer-events: none;
+}
+
+.customerMessagesPanel {
+  background: #fff;
+  border-radius: $unxt-radius;
+  box-shadow: 0 4px 28px rgba(15, 23, 42, 0.06);
+  min-height: calc(100vh - 8rem);
+  min-height: calc(100dvh - 8rem);
+  overflow: hidden;
+}
+
+.customerDeliveryPartner {
+  margin: 14px 0 16px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #eff6ff 0%, #e0f2fe 45%, #e8eeff 100%);
+  box-shadow: 0 4px 18px rgba(37, 99, 235, 0.12), inset 0 0 0 1px rgba(37, 99, 235, 0.18);
+}
+
+.customerDeliveryPartnerTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #1d4ed8;
+  margin-bottom: 8px;
+}
+
+.customerDeliveryPartnerIcon {
+  color: #2563eb;
+  flex-shrink: 0;
+}
+
+.customerDeliveryPartnerName {
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.customerDeliveryPartnerRow {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: #334155;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.customerDeliveryPartnerRow:last-child {
+  margin-bottom: 0;
+}
+
+.customerDeliveryPartnerLabel {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  min-width: 48px;
+}
+
+.customerCallRiderBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  min-height: 44px;
+  border-radius: 16px;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  color: #fff;
+  background: linear-gradient(135deg, #0ea5e9, #2563eb);
+  box-shadow: 0 4px 14px rgba(14, 165, 233, 0.35);
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.customerCallRiderBtn:hover {
+  filter: brightness(1.05);
+}
+
+/* Order cards inside customer app */
+.customerApp {
+  .orderFilters {
+    background: #fff;
+    border: none;
+    border-radius: $unxt-radius;
+    box-shadow: 0 2px 16px rgba(15, 23, 42, 0.05);
+    padding: 0.65rem 0.85rem;
+  }
+
+  .orderFilterBtn.active {
+    background: $unxt-accent;
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+  }
+
+  .orderCard {
+    background: #fff;
+    border: none;
+    border-radius: $unxt-radius;
+    border-left: none;
+    padding: 1.25rem 1.35rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+    transition: box-shadow 0.2s;
+
+    &:hover {
+      box-shadow: 0 8px 32px rgba(15, 23, 42, 0.09);
+    }
+
+    .orderHeader h3 {
+      color: $unxt-midnight;
+      font-weight: 700;
+      font-size: 1rem;
+    }
+
+    p {
+      color: #64748b;
+      font-weight: 400;
+      font-size: 0.875rem;
+    }
+
+    .orderActions {
+      border-top: 1px solid #f1f5f9;
+      margin-top: 0.85rem;
+      padding-top: 1rem;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.65rem;
+    }
+  }
+
+  .orderPrimaryCta {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: none;
+    border-radius: $unxt-radius;
+    font-size: 0.9rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    background: $unxt-accent;
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
+    transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 22px rgba(37, 99, 235, 0.4);
+      background: #1d4ed8;
+    }
+  }
+
+  .orderCancelLink {
+    align-self: flex-start;
+    padding: 0;
+    border: none;
+    background: none;
+    color: #94a3b8;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    font-family: inherit;
+
+    &:hover:not(:disabled) {
+      color: #dc2626;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  .primaryBtn {
+    background: $unxt-accent;
+    border-radius: $unxt-radius;
+
+    &:hover {
+      background: #1d4ed8;
+    }
+  }
+
+  .emptyState {
+    background: #fff;
+    border-radius: $unxt-radius;
+    border: none;
+    box-shadow: 0 4px 24px rgba(15, 23, 42, 0.05);
+  }
+}
+
+/* Product grid (customer overview) */
+.customerApp .productCardPro .sizeSelect {
+  border-radius: $unxt-radius;
+}
+
+.customerApp .productCardPro {
+  background: #fff;
+  border: none;
+  border-radius: $unxt-radius;
+  box-shadow: 0 6px 28px rgba(15, 23, 42, 0.07);
+
+  &:hover {
+    box-shadow: 0 12px 40px rgba(15, 23, 42, 0.1);
+  }
+
+  .imageWrap {
+    background: #f8fafc;
+
+    img {
+      transition: transform 0.45s cubic-bezier(0.33, 1, 0.68, 1);
+    }
+
+    &:hover img {
+      transform: scale(1.06);
+    }
+  }
+
+  .cardTitle {
+    font-weight: 700;
+  }
+
+  .cardCategory {
+    font-weight: 300;
+  }
+
+  .price {
+    font-weight: 800;
+    color: $unxt-midnight;
+  }
+
+  .sizeSelect,
+  .primaryBtn {
+    border-radius: $unxt-radius;
+  }
+
+  .primaryBtn {
+    background: $unxt-accent;
+
+    &:hover {
+      background: #1d4ed8;
+    }
+  }
+
+  .wishBtn {
+    color: #64748b;
+
+    &.active {
+      color: #ef4444;
+    }
+  }
+}
+
+.customerApp .wishlistRowCard {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: #fff;
+  border: none;
+  border-radius: $unxt-radius;
+  padding: 1rem 1.15rem;
+  margin-bottom: 0.75rem;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+}
+
+.customerApp .wishlistRowThumb {
+  width: 80px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: $unxt-radius;
+}
+
+/* Profile cards */
+.customerApp .profileCard {
+  background: #fff;
+  border: none;
+  border-radius: $unxt-radius;
+  box-shadow: 0 4px 28px rgba(15, 23, 42, 0.06);
+}
+
+.customerApp .profileCardHeader h2 {
+  font-weight: 700;
+}
+
+.customerApp .secondaryBtn {
+  border-radius: $unxt-radius;
+  padding: 0.5rem 1rem;
+  font-size: 0.8125rem;
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+
+  &:hover {
+    background: #e2e8f0;
+  }
+}
+
+.customerApp .formGroup input {
+  border-radius: $unxt-radius;
+  border-color: #e2e8f0;
+
+  &:focus {
+    border-color: $unxt-accent;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  }
+}
+
+.securityToggleBtn {
+  padding: 0.5rem 1rem;
+  border-radius: $unxt-radius;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: $unxt-midnight;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s, background 0.15s;
+
+  &:hover {
+    border-color: $unxt-accent;
+    color: $unxt-accent;
+  }
+}
+
+@media (max-width: 1024px) {
+  .customerSidebarFixed {
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+  }
+
+  .customerSidebarOpen {
+    transform: translateX(0);
+  }
+
+  .customerMain {
+    margin-left: 0;
+    max-width: none;
+    padding: 1rem 1rem 2rem;
+  }
+
+  .customerMobileBar {
+    display: flex;
+  }
+}
+
+/* Rider dashboard (fleet sign-in) */
+.riderDashWrap {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: linear-gradient(165deg, #f8fafc 0%, #eff6ff 45%, #eef2ff 100%);
+  padding: 0 1.25rem 3rem;
+}
+
+.riderDashHeader {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 1.25rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.riderDashBrand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 800;
+  font-size: 1.1rem;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+  text-decoration: none;
+}
+
+.riderDashBrandN {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: #fff;
+  font-size: 0.85rem;
+}
+
+.riderDashLogout {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+
+  &:hover {
+    border-color: #cbd5e1;
+    color: #0f172a;
+  }
+}
+
+.riderDashCard {
+  max-width: 560px;
+  margin: 2rem auto 0;
+  padding: 2rem 1.75rem;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+}
+
+.riderDashIcon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(124, 58, 237, 0.1));
+  color: #2563eb;
+  margin-bottom: 1.25rem;
+}
+
+.riderDashTitle {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+}
+
+.riderDashLead {
+  margin: 0 0 1.25rem;
+  font-size: 1rem;
+  color: #334155;
+  line-height: 1.5;
+}
+
+.riderDashBody {
+  margin: 0 0 1rem;
+  font-size: 0.95rem;
+  color: #475569;
+  line-height: 1.65;
+}
+
+.riderDashNote {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #94a3b8;
+  line-height: 1.55;
+  padding-top: 1rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.riderDashMuted {
+  color: #64748b;
+  font-weight: 400;
 }

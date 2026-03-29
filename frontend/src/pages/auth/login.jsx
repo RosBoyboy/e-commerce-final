@@ -31,7 +31,7 @@ export default function Login() {
 
     try {
       const response = await login(formData.email, formData.password);
-      const userRole = response.user.role.name;
+      const userRole = response.user?.role?.name;
       if (formData.remember) {
         try {
           localStorage.setItem('auth_remember_email', formData.email);
@@ -40,6 +40,8 @@ export default function Login() {
       if (userRole === 'customer') router.push('/dashboard/customer');
       else if (userRole === 'seller') router.push('/dashboard/seller');
       else if (userRole === 'admin') router.push('/dashboard/admin');
+      else if (userRole === 'rider') router.push('/dashboard/rider');
+      else router.push('/');
     } catch (err) {
       const msg =
         err.response?.data?.message ||
@@ -56,7 +58,12 @@ export default function Login() {
     <div className={styles.authContainer}>
       <div className={styles.authCard}>
         <div className={styles.authIconWrap}>
-          <span className={styles.authIcon} aria-hidden>🔒</span>
+          <span className={styles.authIcon} aria-hidden>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+          </span>
         </div>
         <h1 className={styles.authTitle}>Welcome back</h1>
         <p className={styles.authSubtitle}>Please enter your details to sign in.</p>
@@ -83,7 +90,9 @@ export default function Login() {
           <div className={styles.formGroup}>
             <label htmlFor="password">Password</label>
             <div className={styles.inputWrap}>
-              <span className={styles.inputIcon} aria-hidden>🔑</span>
+              <span className={styles.inputIcon} aria-hidden>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 11v6"/><path d="M20 13h2"/><path d="M3 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 2.072.578"/><circle cx="10" cy="7" r="4"/><circle cx="20" cy="19" r="2"/></svg>
+              </span>
               <input
                 type={showPassword ? 'text' : 'password'}
                 id="password"
@@ -101,7 +110,17 @@ export default function Login() {
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
                 tabIndex={-1}
               >
-                {showPassword ? '🔒' : '👁'}
+                {showPassword ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                )}
               </button>
             </div>
           </div>

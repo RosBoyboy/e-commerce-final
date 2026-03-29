@@ -16,13 +16,18 @@ class AuthController extends Controller
      */
     public function register(Request $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8|confirmed',
-            'phone' => 'nullable|string|max:20',
-            'address' => 'nullable|string|max:255',
-        ]);
+        $validated = $request->validate(
+            [
+                'name' => 'required|string|max:255',
+                'email' => 'required|string|email|max:255|unique:users,email',
+                'password' => 'required|string|min:8|confirmed',
+                'phone' => 'required|string|max:20',
+                'address' => 'required|string|min:10|max:2000',
+            ],
+            [
+                'email.unique' => 'This email is already in use.',
+            ]
+        );
 
         // Only customer accounts can be created via public signup; seller/admin are created by admin.
         $role = Role::where('name', 'customer')->first();
@@ -65,6 +70,12 @@ class AuthController extends Controller
         if (!$user || !Hash::check($validated['password'], $user->password)) {
             throw ValidationException::withMessages([
                 'email' => ['The provided credentials are incorrect.'],
+            ]);
+        }
+
+        if ($user->is_archived) {
+            throw ValidationException::withMessages([
+                'email' => ['This account has been archived. Contact support to restore access.'],
             ]);
         }
 

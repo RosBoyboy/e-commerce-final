@@ -3,8 +3,10 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/context/AuthContext';
-import { useCart } from '@/context/CartContext';
+import { useCart, CartAddBlockedError } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
+import { useToast } from '@/components/ui/ToastProvider';
+import { Heart, MessageCircle } from 'lucide-react';
 import { fetchProduct, createConversation } from '@/services/api';
 import { productImageUrl } from '@/utils/image';
 import styles from '@/styles/products.module.scss';
@@ -20,6 +22,7 @@ export default function ProductDetail() {
   const [error, setError] = useState('');
   const [selectedSize, setSelectedSize] = useState('');
   const [messageSellerLoading, setMessageSellerLoading] = useState(false);
+  const { showToast } = useToast();
 
   useEffect(() => {
     if (!id) return;
@@ -42,19 +45,28 @@ export default function ProductDetail() {
     load();
   }, [id]);
 
-  const handleAddToCart = (e) => {
+  const handleAddToCart = async (e) => {
     e.preventDefault();
     if (!user) {
-      alert('Please log in to add items to your cart.');
       router.push('/auth/login');
       return;
     }
     if (!selectedSize) {
-      alert('Please select a size.');
+      showToast({ message: 'Please select a size.', type: 'error' });
       return;
     }
-    addItem(product, { size: selectedSize, quantity: 1 });
-    alert(`Added ${product.name} (Size: ${selectedSize}) to cart.`);
+    try {
+      await addItem(product, { size: selectedSize, quantity: 1 });
+      showToast({
+        message: `Added ${product.name} (Size: ${selectedSize}) to your cart.`,
+        type: 'success',
+        actionLabel: 'View cart',
+        onAction: () => router.push('/cart'),
+      });
+    } catch (e) {
+      if (e instanceof CartAddBlockedError) return;
+      showToast({ message: 'Could not add to cart. Try again.', type: 'error' });
+    }
   };
 
   const handleMessageSeller = async () => {
@@ -63,7 +75,7 @@ export default function ProductDetail() {
       return;
     }
     if (!product.seller_id) {
-      alert('Seller information is not available for this product.');
+      showToast({ message: 'Seller information is not available for this product.', type: 'error' });
       return;
     }
     setMessageSellerLoading(true);
@@ -75,7 +87,10 @@ export default function ProductDetail() {
       router.push(`/messages?conversation=${data.conversation.id}`);
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || 'Could not start conversation.');
+      showToast({
+        message: err.response?.data?.message || 'Could not start conversation.',
+        type: 'error',
+      });
     } finally {
       setMessageSellerLoading(false);
     }
@@ -108,67 +123,64 @@ export default function ProductDetail() {
       <div className={styles.breadcrumb}>
         <Link href="/">Home</Link> / <Link href="/products">Shop</Link> / <span>{product.name}</span>
       </div>
-      <div style={{ maxWidth: 1000, margin: '0 auto', padding: 32, display: 'flex', gap: 48, flexWrap: 'wrap' }}>
-        <div style={{ flex: '1 1 400px' }}>
+      <div className={styles.detailGrid}>
+        <div className={styles.detailImageWrap}>
           <img
             src={product.image}
             alt={product.name}
-            style={{ width: '100%', maxWidth: 500, borderRadius: 8 }}
             onError={(e) => { e.target.src = 'https://placehold.co/500x600'; }}
           />
         </div>
-        <div style={{ flex: '1 1 300px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-            <h1 style={{ fontSize: 28, margin: 0 }}>{product.name}</h1>
+        <div className={styles.detailInfo}>
+          <div className={styles.detailTitleRow}>
+            <h1 className={styles.detailTitle}>{product.name}</h1>
             <button
               type="button"
+              className={styles.iconBtnGhost}
               onClick={() => (isInWishlist(product.id) ? removeFromWishlist(product.id) : addToWishlist(product.id))}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 24 }}
               aria-label={isInWishlist(product.id) ? 'Remove from wishlist' : 'Add to wishlist'}
             >
-              {isInWishlist(product.id) ? '♥' : '♡'}
+              <Heart size={20} strokeWidth={1.5} fill={isInWishlist(product.id) ? 'currentColor' : 'none'} />
             </button>
           </div>
-          <p style={{ color: '#4a5568', marginBottom: 16 }}>{product.category}</p>
-          <p style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>₱{Number(product.price).toFixed(2)}</p>
+          <p className={styles.detailMeta}>{product.category}</p>
+          <p className={styles.detailPrice}>₱{Number(product.price).toFixed(2)}</p>
           <form onSubmit={handleAddToCart}>
-            <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Size</label>
+            <label className={styles.detailSizeLabel} htmlFor="product-size">Size</label>
             <select
+              id="product-size"
               value={selectedSize}
               onChange={(e) => setSelectedSize(e.target.value)}
               required
-              style={{ width: '100%', padding: 12, borderRadius: 6, border: '1px solid #cbd5e0', marginBottom: 16, fontSize: 14 }}
+              className={styles.detailSelect}
             >
               <option value="">Select Size</option>
               {(Array.isArray(product.sizes) ? product.sizes : ['S', 'M', 'L', 'XL']).map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
-            <button type="submit" className={styles.addToCart} style={{ width: '100%' }}>
-              Add to Cart
+            <button
+              type="submit"
+              className={styles.addToCart}
+              style={{ width: '100%' }}
+              disabled={(product.stock ?? 0) < 1}
+              aria-disabled={(product.stock ?? 0) < 1}
+            >
+              {(product.stock ?? 0) < 1 ? 'Out of stock' : 'Add to cart'}
             </button>
           </form>
           {product.seller_id && user?.role?.name === 'customer' && (
             <button
               type="button"
+              className={styles.detailMsgBtn}
               onClick={handleMessageSeller}
               disabled={messageSellerLoading}
-              style={{
-                width: '100%',
-                marginTop: 12,
-                padding: 12,
-                background: '#f3f4f6',
-                border: '1px solid #d1d5db',
-                borderRadius: 6,
-                cursor: messageSellerLoading ? 'not-allowed' : 'pointer',
-                fontWeight: 600,
-                fontSize: 14,
-              }}
             >
-              {messageSellerLoading ? 'Opening...' : '💬 Message seller'}
+              <MessageCircle size={18} strokeWidth={1.5} aria-hidden />
+              {messageSellerLoading ? 'Opening…' : 'Message seller'}
             </button>
           )}
-          <Link href="/products" style={{ display: 'inline-block', marginTop: 16, color: '#0b73ff' }}>
+          <Link href="/products" style={{ display: 'inline-block', marginTop: 16, color: '#2563eb', fontWeight: 600, fontSize: 14 }}>
             ← Back to products
           </Link>
         </div>

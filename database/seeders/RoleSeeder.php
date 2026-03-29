@@ -27,5 +27,10 @@ class RoleSeeder extends Seeder
             ['name' => 'admin'],
             ['description' => 'Admin who can manage the platform']
         );
+
+        Role::firstOrCreate(
+            ['name' => 'rider'],
+            ['description' => 'Delivery rider (built-in fleet accounts)']
+        );
     }
 }

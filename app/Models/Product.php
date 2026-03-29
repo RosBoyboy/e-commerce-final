@@ -9,10 +9,11 @@ class Product extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'slug', 'description', 'price', 'stock', 'image', 'category_id', 'seller_id', 'is_active', 'sizes', 'color'];
+    protected $fillable = ['name', 'slug', 'description', 'price', 'stock', 'image', 'category_id', 'seller_id', 'is_active', 'is_archived', 'sizes', 'color'];
 
     protected $casts = [
         'sizes' => 'array', // Cast sizes JSON to array
+        'is_archived' => 'boolean',
     ];
 
     public function category()

@@ -1,9 +1,9 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
+import { MessageCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useMessageUnread } from '@/context/MessageUnreadContext';
 import { useProtectedRoute } from '@/hooks/useProtectedRoute';
-import { fetchConversationsUnreadCount } from '@/services/api';
 import styles from '@/styles/sellerPortal.module.scss';
 
 const navItems = [
@@ -11,22 +11,14 @@ const navItems = [
   { href: '/dashboard/seller/inventory', label: 'My Inventory', icon: '▤' },
   { href: '/dashboard/seller/orders', label: 'Manage Orders', icon: '🛒' },
   { href: '/dashboard/seller/analytics', label: 'Analytics', icon: '▥' },
-  { href: '/dashboard/seller/settings', label: 'Settings', icon: '⚙' },
   { href: '/dashboard/seller/payouts', label: 'Payouts', icon: '₱' },
 ];
 
 export default function SellerLayout({ children }) {
   const router = useRouter();
   const { user, logout } = useAuth();
-  const [unreadCount, setUnreadCount] = useState(0);
+  const { unreadCount } = useMessageUnread();
   useProtectedRoute('seller');
-
-  useEffect(() => {
-    if (!user) return;
-    fetchConversationsUnreadCount()
-      .then((res) => setUnreadCount(res.data?.unread_count ?? 0))
-      .catch(() => {});
-  }, [user, router.pathname]);
 
   const handleLogout = async () => {
     await logout();
@@ -64,24 +56,26 @@ export default function SellerLayout({ children }) {
               </Link>
             );
           })}
-        </nav>
-        <Link href="/messages" className={styles.navItem}>
-          <span className={styles.navIcon}>💬</span>
-          Messages
-          {unreadCount > 0 && (
-            <span className={styles.messageBadge} aria-label={`${unreadCount} unread`}>
-              {unreadCount > 99 ? '99+' : unreadCount}
+          <Link href="/messages" className={styles.navItem}>
+            <span className={styles.navMessagesIconWrap}>
+              <MessageCircle size={20} strokeWidth={1.5} className={styles.navMessagesLucide} aria-hidden />
+              {unreadCount > 0 && (
+                <span className={styles.navMessagesIconBadge} aria-label={`${unreadCount} unread messages`}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
             </span>
-          )}
-        </Link>
+            Messages
+          </Link>
+        </nav>
         <div className={styles.sidebarFooter}>
-          <div className={styles.userProfile}>
+          <Link href="/dashboard/seller/settings" className={styles.userProfile} aria-label="Open store settings">
             <div className={styles.avatar}>{user.name?.charAt(0)?.toUpperCase() || 'S'}</div>
             <div className={styles.userMeta}>
               <span className={styles.userName}>{user.name}</span>
-              <span className={styles.storeName}>Seller</span>
+              <span className={styles.storeName}>Urban Store • Settings</span>
             </div>
-          </div>
+          </Link>
           <button type="button" className={styles.logoutBtn} onClick={handleLogout}>
             Log Out
           </button>

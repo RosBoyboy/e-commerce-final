@@ -1,13 +1,39 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+:root {
+  --unxt-midnight: #111827;
+  --unxt-accent: #2563eb;
+  --unxt-accent-hover: #1d4ed8;
+  --unxt-radius: 14px;
+  --unxt-card: #ffffff;
+}
+
+.bg{ }
 $bg: #f3f4f6; $text: #1f2937; $muted: #6b7280; $brand:#111827; $primary:#2563eb; $card:#ffffff; $border:#e5e7eb;
 *{box-sizing:border-box}
 html{overflow-x:hidden}
-body{margin:0;font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial; background:$bg; color:$text; overflow-x:hidden}
+body{margin:0;font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial; background:$bg; color:$text; overflow-x:hidden;font-weight:400}
+button, a, .navItem, .navItemPro, .btn { transition: all .3s ease; }
 .container{max-width:1280px;margin:0 auto;padding:0 1rem;min-height:60vh}
 .container img{max-width:100%;height:auto}
 @media (max-width: 640px){.container{padding:0 0.75rem}}
 .btn{display:inline-block;padding:.6rem 1rem;border-radius:.375rem;background:#e5e7eb;color:#111;text-decoration:none}
 .btn.primary{background:$primary;color:#fff}
-.navbar{background:#fff;border-bottom:1px solid $border;position:sticky;top:0;z-index:10}
+.navbar{
+  position:sticky;
+  top:0;
+  z-index:30;
+  background:rgba(255,255,255,0.65);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid rgba(229,231,235,0.55);
+  transition:background .22s ease, border-color .22s ease, box-shadow .22s ease;
+}
+.navbar.navbar--solid{
+  background:rgba(255,255,255,0.92);
+  border-bottom-color:rgba(229,231,235,0.95);
+  box-shadow:0 1px 0 rgba(15,23,42,0.04);
+}
 .navbar .nav-inner{max-width:1280px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;padding:1rem 1.25rem}
 .navbar .brand{display:flex;gap:.5rem;align-items:center;color:$brand;text-decoration:none;font-weight:600}
 .navbar .brand-n{font-weight:900}
@@ -16,9 +42,11 @@ body{margin:0;font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial; bac
 .navbar .nav-links a:hover{color:$text}
 .navbar .nav-links a.active{color:$text;font-weight:600}
 .navbar .nav-actions{display:flex;align-items:center;gap:.75rem}
+.nav-icon-link{display:inline-flex;align-items:center;justify-content:center;color:#6366f1;text-decoration:none;padding:6px;border-radius:6px;transition:color .2s,background .2s}
+.nav-icon-link:hover{color:#4f46e5;background:#f5f3ff}
 .nav-center{display:flex;align-items:center;gap:1rem;flex:1;justify-content:center}
-.nav-search{display:flex;align-items:center;border:1px solid $border;border-radius:.375rem;overflow:hidden;background:#fff}
-.nav-search input{width:180px;padding:.5rem .75rem;border:0;font-size:14px;outline:none}
+.nav-search{display:flex;align-items:center;border:1px solid rgba(203,213,225,0.85);border-radius:var(--unxt-radius);overflow:hidden;background:rgba(255,255,255,0.85)}
+.nav-search input{width:180px;padding:.5rem .75rem;border:0;font-size:14px;outline:none;border-radius:var(--unxt-radius)}
 .nav-search button{ padding:.5rem .75rem;border:0;background:transparent;cursor:pointer;font-size:1rem}
 .nav-breadcrumb{font-size:13px;color:$muted}
 .nav-breadcrumb a{color:$muted;text-decoration:none}
@@ -29,8 +57,79 @@ body{margin:0;font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial; bac
 .nav-logout{background:none;border:none;cursor:pointer;font-size:inherit;color:inherit;padding:0 8px}
 .nav-messages{margin-left:.5rem;color:$muted;text-decoration:none;font-size:14px}
 .nav-messages:hover{color:$text}
+.nav-messages-icon-wrap{position:relative;display:inline-flex;align-items:center;justify-content:center}
+.nav-messages-badge{position:absolute;top:-6px;right:-8px;min-width:16px;height:16px;padding:0 4px;font-size:10px;font-weight:700;background:#ef4444;color:#fff;border-radius:999px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 1px #fff}
+.nav-bell{background:none;border:none;padding:0;margin-left:.5rem;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;color:$muted}
+.nav-bell:hover{color:$text}
+/* Toast notification */
+.toast-root{
+  position:fixed;
+  top:1.25rem;
+  right:1.25rem;
+  z-index:50;
+  display:flex;
+  align-items:center;
+  gap:.75rem;
+  padding:.75rem 1rem;
+  border-radius:.75rem;
+  box-shadow:0 15px 30px rgba(15,23,42,.18);
+  background:#0f172a;
+  color:#e5e7eb;
+  min-width:260px;
+  max-width:340px;
+  font-size:14px;
+}
+.toast-success{
+  background:#047857;
+}
+.toast-error{
+  background:#b91c1c;
+  color:#fff;
+  border:1px solid rgba(255,255,255,.12);
+}
+.toast-error .toast-icon{
+  background:rgba(255,255,255,.15);
+  color:#fecaca;
+}
+.toast-icon{
+  width:32px;
+  height:32px;
+  border-radius:999px;
+  background:rgba(37,99,235,.1);
+  color:var(--unxt-accent);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-shrink:0;
+}
+.toast-success .toast-icon{
+  background:rgba(37,99,235,.12);
+  color:var(--unxt-accent);
+}
+.toast-body{
+  flex:1;
+}
+.toast-message{
+  font-weight:500;
+  line-height:1.4;
+}
+.toast-action{
+  border:none;
+  background:var(--unxt-accent);
+  color:#fff;
+  font-size:12px;
+  font-weight:600;
+  padding:.45rem .85rem;
+  border-radius:999px;
+  cursor:pointer;
+  flex-shrink:0;
+  letter-spacing:.02em;
+}
+.toast-action:hover{
+  background:var(--unxt-accent-hover);
+}
 /* Mobile navbar */
-.nav-toggle{display:none;background:none;border:none;cursor:pointer;padding:8px;font-size:1.25rem;line-height:1;color:$brand}
+.nav-toggle{display:none;background:none;border:none;cursor:pointer;padding:8px;font-size:1.25rem;line-height:1;color:$brand;align-items:center;justify-content:center}
 @media (max-width: 768px){
   .nav-toggle{display:inline-flex;align-items:center;justify-content:center}
   .navbar .nav-inner{flex-wrap:wrap;padding:.75rem 1rem;gap:.75rem}
@@ -73,21 +172,21 @@ body{margin:0;font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial; bac
 .footer-legal a:hover{color:#fff}
 @media (max-width:900px){.footer .footer-inner{grid-template-columns:1fr 1fr}}
 @media (max-width:600px){.footer .footer-inner{grid-template-columns:1fr}}
-.hero .hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:2rem;align-items:center;background:#fff;border:1px solid $border;border-radius:.5rem;padding:2rem}
+.hero .hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:2rem;align-items:center;background:$card;border:1px solid $border;border-radius:.5rem;padding:2rem}
 .hero-thumb{background:linear-gradient(135deg,#ddd,#f8f8f8);height:260px;border-radius:.25rem}
 .hero-copy h1{font-size:2.2rem;margin:0 0 .5rem}
 .hero .mt{margin-top:1.5rem}
 .cat-row{display:flex;gap:1.25rem;margin-top:.75rem}
-.cat-card{background:#fff;border:1px solid $border;border-radius:.25rem;flex:1;min-height:120px;display:flex;align-items:flex-end;justify-content:center;padding:1rem}
+.cat-card{background:$card;border:1px solid $border;border-radius:.25rem;flex:1;min-height:120px;display:flex;align-items:flex-end;justify-content:center;padding:1rem}
 .products-page h1{margin:0 0 1rem}
 .products-page .grid{display:grid;grid-template-columns:260px 1fr;gap:1.25rem}
-.filter-sidebar{background:#fff;border:1px solid $border;border-radius:.25rem;padding:1rem}
-.product-card{background:#fff;border:1px solid $border;border-radius:.25rem;padding:.5rem}
+.filter-sidebar{background:$card;border:1px solid $border;border-radius:.25rem;padding:1rem}
+.product-card{background:$card;border:1px solid $border;border-radius:.25rem;padding:.5rem}
 .product-card .thumb{background:#f1f5f9;height:160px;border-radius:.25rem;margin-bottom:.5rem}
 .product-card .title{font-weight:600}
 .product-card .price{color:$muted;margin:.25rem 0 .5rem}
 .cart-grid{display:grid;grid-template-columns:1fr 320px;gap:1.25rem}
-.order-summary{background:#fff;border:1px solid $border;border-radius:.25rem;padding:1rem}
+.order-summary{background:$card;border:1px solid $border;border-radius:.25rem;padding:1rem}
 .auth-form{background:#4b5563;color:#fff;border-radius:.75rem;max-width:360px;margin:2rem auto;padding:1.25rem;display:flex;flex-direction:column;gap:.5rem}
 .auth-form h2{margin:.25rem 0 .75rem}
 .auth-form label{display:flex;flex-direction:column;font-size:.9rem;gap:.25rem}

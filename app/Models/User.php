@@ -24,6 +24,7 @@ class User extends Authenticatable
         'phone',
         'address',
         'role_id',
+        'is_archived',
     ];
 
     /**
@@ -43,6 +44,7 @@ class User extends Authenticatable
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'is_archived' => 'boolean',
     ];
 
     /**

@@ -66,12 +66,17 @@ class AuthWebController extends Controller
      */
     public function registerStore(Request $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users',
-            'role' => 'required|in:customer,seller',
-            'password' => 'required|string|min:8|confirmed',
-        ]);
+        $validated = $request->validate(
+            [
+                'name' => 'required|string|max:255',
+                'email' => 'required|email|unique:users,email',
+                'role' => 'required|in:customer,seller',
+                'password' => 'required|string|min:8|confirmed',
+            ],
+            [
+                'email.unique' => 'This email is already in use.',
+            ]
+        );
 
         try {
             // Get role

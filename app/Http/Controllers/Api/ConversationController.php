@@ -5,11 +5,30 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\Order;
 use App\Models\User;
 use Illuminate\Http\Request;
 
 class ConversationController extends Controller
 {
+    /**
+     * Mark every message from others as read in conversations the user participates in.
+     * Used when the user opens the Messages page so sidebar/nav badges clear immediately.
+     */
+    public function markAllRead(Request $request)
+    {
+        $userId = $request->user()->id;
+
+        Message::whereNull('read_at')
+            ->where('user_id', '!=', $userId)
+            ->whereHas('conversation', function ($q) use ($userId) {
+                $q->where('seller_id', $userId)->orWhere('customer_id', $userId);
+            })
+            ->update(['read_at' => now()]);
+
+        return response()->json(['ok' => true], 200);
+    }
+
     /**
      * Total unread message count for the current user (for notification badge).
      */
@@ -85,13 +104,45 @@ class ConversationController extends Controller
 
         $other = $conversation->seller_id === $user->id ? $conversation->customer : $conversation->seller;
 
+        $activeOrderPayload = null;
+        if ($user->hasRole('seller') && (int) $conversation->seller_id === (int) $user->id) {
+            $activeOrder = Order::with(['rider.user:id,name,email'])
+                ->where('customer_id', $conversation->customer_id)
+                ->whereHas('items.product', function ($q) use ($user) {
+                    $q->where('seller_id', $user->id);
+                })
+                ->whereIn('status', ['pending', 'confirmed', 'processing', 'shipped'])
+                ->orderByRaw("CASE WHEN LOWER(status) = 'shipped' THEN 0 ELSE 1 END")
+                ->orderByDesc('updated_at')
+                ->first();
+
+            if ($activeOrder) {
+                $r = $activeOrder->rider;
+                $activeOrderPayload = [
+                    'id' => $activeOrder->id,
+                    'order_number' => $activeOrder->order_number,
+                    'status' => $activeOrder->status,
+                    'rider_id' => $activeOrder->rider_id,
+                    'rider' => $r ? [
+                        'id' => $r->id,
+                        'name' => $r->user ? $r->user->name : null,
+                        'phone' => $r->phone,
+                        'vehicle_plate' => $r->vehicle_plate,
+                    ] : null,
+                ];
+            }
+        }
+
         return response()->json([
             'conversation' => [
                 'id' => $conversation->id,
+                'seller_id' => $conversation->seller_id,
+                'customer_id' => $conversation->customer_id,
                 'other_user' => $other ? ['id' => $other->id, 'name' => $other->name, 'email' => $other->email] : null,
                 'product' => $conversation->product,
             ],
             'messages' => $messages,
+            'active_order' => $activeOrderPayload,
         ], 200);
     }
 

@@ -6,14 +6,17 @@ import { fetchProducts } from '@/services/api';
 import { productImageUrl } from '@/utils/image';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/router';
-import { useCart } from '@/context/CartContext';
+import { useCart, CartAddBlockedError } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
+import { useToast } from '@/components/ui/ToastProvider';
+import { Heart } from 'lucide-react';
 
 export default function Products() {
   const { user } = useAuth();
   const router = useRouter();
   const { addItem } = useCart();
   const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlist();
+  const { showToast } = useToast();
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -60,20 +63,29 @@ export default function Products() {
     setSelectedSize({ ...selectedSize, [id]: size });
   };
 
-  const handleAddToCart = (e, product) => {
+  const handleAddToCart = async (e, product) => {
     e.preventDefault();
     if (!user) {
-      alert('Please log in to add items to your cart.');
       router.push('/auth/login');
       return;
     }
     const size = selectedSize[product.id];
     if (!size) {
-      alert('Please select a size first');
+      showToast({ message: 'Please select a size first.', type: 'error' });
       return;
     }
-    addItem(product, { size, quantity: 1 });
-    alert(`Added ${product.name} (Size: ${size}) to cart.`);
+    try {
+      await addItem(product, { size, quantity: 1 });
+      showToast({
+        message: `Added ${product.name} (Size: ${size}) to your cart.`,
+        type: 'success',
+        actionLabel: 'View cart',
+        onAction: () => router.push('/cart'),
+      });
+    } catch (e) {
+      if (e instanceof CartAddBlockedError) return;
+      showToast({ message: 'Could not add to cart. Try again.', type: 'error' });
+    }
   };
 
   if (loading) {
@@ -113,7 +125,7 @@ export default function Products() {
         <aside className={styles.sidebar}>
           <h3>Filters</h3>
 
-          <form onSubmit={(e) => { e.preventDefault(); alert('Filters applied!'); }}>
+          <form onSubmit={(e) => { e.preventDefault(); showToast({ message: 'Filters applied.', type: 'success' }); }}>
             <div className={styles.filterGroup}>
               <span className={styles.filterLabel}>Category</span>
               <div className={styles.checkboxList}>
@@ -187,10 +199,12 @@ export default function Products() {
                     />
                   </Link>
                   <button
+                    type="button"
                     className={`${styles.wishlistBtn} ${isInWishlist(product.id) ? styles.active : ''}`}
                     onClick={() => toggleWishlist(product.id)}
+                    aria-label={isInWishlist(product.id) ? 'Remove from wishlist' : 'Add to wishlist'}
                   >
-                    {isInWishlist(product.id) ? '♥' : '♡'}
+                    <Heart size={18} strokeWidth={1.5} fill={isInWishlist(product.id) ? 'currentColor' : 'none'} />
                   </button>
                 </div>
 
@@ -219,8 +233,27 @@ export default function Products() {
                       )}
                     </div>
 
-                    <button type="submit" className={styles.addToCart}>
-                      Add to Cart
+                    {(product.stock ?? 0) < 1 && (
+                      <p
+                        style={{
+                          margin: '8px 0 6px',
+                          fontSize: 13,
+                          fontWeight: 700,
+                          color: '#b91c1c',
+                        }}
+                        role="alert"
+                      >
+                        Out of stock — cannot add to cart.
+                      </p>
+                    )}
+
+                    <button
+                      type="submit"
+                      className={styles.addToCart}
+                      disabled={(product.stock ?? 0) < 1}
+                      aria-disabled={(product.stock ?? 0) < 1}
+                    >
+                      {(product.stock ?? 0) < 1 ? 'Out of stock' : 'Add to Cart'}
                     </button>
                   </form>
                 </div>

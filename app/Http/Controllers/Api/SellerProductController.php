@@ -23,6 +23,7 @@ class SellerProductController extends Controller
     {
         $this->ensureSeller($request);
         $products = Product::where('seller_id', $request->user()->id)
+            ->where('is_archived', false)
             ->with('category')
             ->orderBy('created_at', 'desc')
             ->get();

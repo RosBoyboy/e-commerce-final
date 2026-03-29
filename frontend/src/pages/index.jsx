@@ -6,9 +6,16 @@ import styles from '@/styles/home.module.scss';
 import { fetchProducts } from '@/services/api';
 import { productImageUrl } from '@/utils/image';
 import { useAuth } from '@/context/AuthContext';
-import { useCart } from '@/context/CartContext';
+import { useCart, CartAddBlockedError } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
+import { useToast } from '@/components/ui/ToastProvider';
+import { Heart, ShoppingBag } from 'lucide-react';
 
+// Hero banner image – replace with your own image URL for a unique look
+// Using width=1200 for sharper display on desktop; adjust width param if needed
+const HERO_IMAGE = 'https://i.guim.co.uk/img/static/sys-images/Guardian/Pix/pictures/2015/10/21/1445445151019/Five-models-wearing-Uniql-009.jpg?width=1200&dpr=1&s=none&crop=none';
+
+// Featured Collections – edit title, desc, image URL, and href for each card
 const FEATURED_COLLECTIONS = [
   {
     title: 'Summer Essentials',
@@ -17,9 +24,9 @@ const FEATURED_COLLECTIONS = [
     href: '/products?category=Women',
   },
   {
-    title: 'Office Wear',
-    desc: 'Professional & comfortable.',
-    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&h=450&fit=crop',
+    title: 'Retro Sportswear',
+    desc: 'Professional & Comfortable',
+    image: 'https://imgix.bustle.com/uploads/image/2025/12/23/693590b4/_header.jpg',
     href: '/products?category=Men',
   },
   {
@@ -38,6 +45,7 @@ export default function Home() {
   const [trending, setTrending] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSize, setSelectedSize] = useState({});
+  const { showToast } = useToast();
 
   useEffect(() => {
     const load = async () => {
@@ -62,20 +70,29 @@ export default function Home() {
     setSelectedSize((prev) => ({ ...prev, [productId]: size }));
   };
 
-  const handleAddToCart = (e, product) => {
+  const handleAddToCart = async (e, product) => {
     e.preventDefault();
     if (!user) {
-      alert('Please log in to add items to your cart.');
       router.push('/auth/login');
       return;
     }
     const size = selectedSize[product.id];
     if (!size) {
-      alert('Please select a size first.');
+      showToast({ message: 'Please select a size first.', type: 'error' });
       return;
     }
-    addItem(product, { size, quantity: 1 });
-    alert(`Added ${product.name} (Size: ${size}) to cart.`);
+    try {
+      await addItem(product, { size, quantity: 1 });
+      showToast({
+        message: `Added ${product.name} (Size: ${size}) to your cart.`,
+        type: 'success',
+        actionLabel: 'View cart',
+        onAction: () => router.push('/cart'),
+      });
+    } catch (e) {
+      if (e instanceof CartAddBlockedError) return;
+      showToast({ message: 'Could not add to cart. Try again.', type: 'error' });
+    }
   };
 
   return (
@@ -88,7 +105,7 @@ export default function Home() {
         <section className={styles.heroBanner}>
           <img
             className={styles.heroBg}
-            src="https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1400&q=80"
+            src={HERO_IMAGE}
             alt=""
           />
           <div className={styles.heroOverlay}>
@@ -96,7 +113,7 @@ export default function Home() {
             <p className={styles.heroDesc}>
               Discover the latest trends for the season. Elevate your wardrobe with our exclusive new collection.
             </p>
-            <Link href="/products" className={styles.shopBtn}>
+            <Link href="/auth/login" className={styles.shopBtn}>
               Shop New Arrivals
             </Link>
           </div>
@@ -149,7 +166,7 @@ export default function Home() {
                     onClick={() => (isInWishlist(product.id) ? removeFromWishlist(product.id) : addToWishlist(product.id))}
                     aria-label={isInWishlist(product.id) ? 'Remove from wishlist' : 'Add to wishlist'}
                   >
-                    {isInWishlist(product.id) ? '♥' : '♡'}
+                    <Heart size={18} strokeWidth={1.5} fill={isInWishlist(product.id) ? 'currentColor' : 'none'} />
                   </button>
                 </div>
                 <div className={styles.cardBody}>
@@ -169,12 +186,28 @@ export default function Home() {
                     ))}
                   </select>
                   <p className={styles.price}>₱{Number(product.price).toFixed(2)}</p>
+                  {(product.stock ?? 0) < 1 && (
+                    <p
+                      style={{
+                        margin: '8px 0 6px',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: '#b91c1c',
+                      }}
+                      role="alert"
+                    >
+                      Out of stock
+                    </p>
+                  )}
                   <button
                     type="button"
                     className={styles.addToCart}
                     onClick={(e) => handleAddToCart(e, product)}
+                    disabled={(product.stock ?? 0) < 1}
+                    aria-disabled={(product.stock ?? 0) < 1}
                   >
-                    🛒 Add to Cart
+                    <ShoppingBag size={17} strokeWidth={1.75} aria-hidden />
+                    {(product.stock ?? 0) < 1 ? 'Out of stock' : 'Add to cart'}
                   </button>
                 </div>
               </div>
@@ -192,7 +225,7 @@ export default function Home() {
             className={styles.subscribeForm}
             onSubmit={(e) => {
               e.preventDefault();
-              alert('Thanks for subscribing!');
+              showToast({ message: 'Thanks for subscribing. Check your inbox soon.', type: 'success' });
             }}
           >
             <input type="email" placeholder="Enter your email address" required aria-label="Email" />

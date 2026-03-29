@@ -3,8 +3,10 @@ import Image from 'next/image';
 import Link from 'next/link';
 import styles from '@/styles/about.module.scss';
 import React from 'react';
+import { useToast } from '@/components/ui/ToastProvider';
 
 export default function About() {
+    const { showToast } = useToast();
     return (
         <>
             <Head>
@@ -91,15 +93,15 @@ export default function About() {
 
                     <div className={styles.features}>
                         <div className={styles.featureCard}>
-                            <div className={styles.featureTitle}>🔷 Ethical Sourcing</div>
+                            <div className={styles.featureTitle}>Ethical sourcing</div>
                             <p>We only partner with manufacturers who provide living wages and use GOTS-certified 100% organic cotton.</p>
                         </div>
                         <div className={styles.featureCard}>
-                            <div className={styles.featureTitle}>📦 Zero-Waste Packaging</div>
+                            <div className={styles.featureTitle}>Zero-waste packaging</div>
                             <p>Your gear arrives in compostable, water-soluble, or fully recycled materials. No plastic, no compromise.</p>
                         </div>
                         <div className={styles.featureCard}>
-                            <div className={styles.featureTitle}>🧵 Slow Fashion</div>
+                            <div className={styles.featureTitle}>Slow fashion</div>
                             <p>We design for longevity, not trends. Durable, timeless pieces built to be worn for years, not weeks.</p>
                         </div>
                     </div>
@@ -112,7 +114,7 @@ export default function About() {
                             <h3>Be part of the movement.</h3>
                             <p>Join a community of over 10,000 creators. Get early access to limited drops, behind-the-scenes content, and exclusive event invites.</p>
                         </div>
-                        <form className={styles.ctaForm} onSubmit={(e) => { e.preventDefault(); alert("Thanks for joining!"); }}>
+                        <form className={styles.ctaForm} onSubmit={(e) => { e.preventDefault(); showToast({ message: 'Thanks for joining. We will be in touch.', type: 'success' }); }}>
                             <input type="email" placeholder="Enter your email" required />
                             <button type="submit">Join Now</button>
                         </form>
