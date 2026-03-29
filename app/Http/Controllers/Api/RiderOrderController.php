@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\Rider;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use DateTimeInterface;
 
 class RiderOrderController extends Controller
 {
@@ -37,14 +38,20 @@ class RiderOrderController extends Controller
     {
         $rider = $this->ensureRider($request);
 
-        $active = Order::with(['customer:id,name,email,phone'])
+        $active = Order::with([
+            'customer:id,name,email,phone',
+            'items.product:id,name,image,slug,price',
+        ])
             ->where('rider_id', $rider->id)
             ->where('status', 'shipped')
             ->orderByDesc('updated_at')
             ->get()
             ->map(fn (Order $o) => $this->serializeOrderForRider($o));
 
-        $recentDone = Order::with(['customer:id,name,email,phone'])
+        $recentDone = Order::with([
+            'customer:id,name,email,phone',
+            'items.product:id,name,image,slug,price',
+        ])
             ->where('rider_id', $rider->id)
             ->where('status', 'delivered')
             ->orderByDesc('updated_at')
@@ -114,7 +121,7 @@ class RiderOrderController extends Controller
 
         Rider::syncAvailability($rider->id);
 
-        $order->load(['customer:id,name,email,phone']);
+        $order->load(['customer:id,name,email,phone', 'items.product:id,name,image,slug,price']);
 
         return response()->json([
             'message' => 'Order marked as delivered.',
@@ -142,8 +149,42 @@ class RiderOrderController extends Controller
         ], 200);
     }
 
+    /**
+     * ISO8601 for JSON; accepts Carbon, DateTime, or DB string.
+     */
+    private function dateToIso($value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        if ($value instanceof DateTimeInterface) {
+            return $value->format(DATE_ATOM);
+        }
+
+        return \Carbon\Carbon::parse($value)->toIso8601String();
+    }
+
     private function serializeOrderForRider(Order $o): array
     {
+        $o->loadMissing(['items.product:id,name,image,slug,price']);
+
+        $items = $o->items->map(function ($it) {
+            $qty = (int) $it->quantity;
+            $price = (float) $it->price;
+
+            return [
+                'id' => $it->id,
+                'quantity' => $qty,
+                'price' => $price,
+                'line_total' => round($price * $qty, 2),
+                'product' => $it->product ? [
+                    'id' => $it->product->id,
+                    'name' => $it->product->name,
+                    'image' => $it->product->image,
+                ] : null,
+            ];
+        })->values()->all();
+
         return [
             'id' => $o->id,
             'order_number' => $o->order_number,
@@ -157,7 +198,10 @@ class RiderOrderController extends Controller
                 'email' => $o->customer->email,
                 'phone' => $o->customer->phone,
             ] : null,
-            'updated_at' => $o->updated_at ? $o->updated_at->toIso8601String() : null,
+            'items' => $items,
+            'created_at' => $this->dateToIso($o->created_at),
+            'updated_at' => $this->dateToIso($o->updated_at),
+            'received_at' => $this->dateToIso($o->received_at),
         ];
     }
 }

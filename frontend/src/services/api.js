@@ -105,7 +105,8 @@ export const riderMarkDelivered = (orderId) =>
 export const fetchConversationsUnreadCount = () => api.get('/conversations/unread-count');
 export const markAllConversationsRead = () => api.post('/conversations/mark-all-read');
 export const fetchConversations = () => api.get('/conversations');
-export const fetchConversation = (id) => api.get(`/conversations/${id}`);
+export const fetchConversation = (id, config = {}) =>
+  api.get(`/conversations/${id}`, config);
 export const createConversation = (payload) => api.post('/conversations', payload);
 export const sendMessage = (conversationId, body) =>
   api.post(`/conversations/${conversationId}/messages`, { body });

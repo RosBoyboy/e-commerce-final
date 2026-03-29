@@ -287,3 +287,19 @@
   color: #6b7280;
   margin-bottom: 16px;
 }
+
+@media (max-width: 540px) {
+  .authContainer {
+    min-height: calc(100vh - 64px);
+    padding: max(24px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  }
+
+  .authCard {
+    padding: 28px 20px;
+    border-radius: 16px;
+  }
+
+  .authTitle {
+    font-size: 1.35rem;
+  }
+}

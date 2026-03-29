@@ -71,6 +71,7 @@ export default function SellerPayouts() {
           <h2>Payout History</h2>
         </div>
         <div className={styles.cardBody} style={{ padding: 0 }}>
+          <div className={styles.tableWrap}>
           <table className={styles.table}>
             <thead>
               <tr>
@@ -97,6 +98,7 @@ export default function SellerPayouts() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </SellerLayout>

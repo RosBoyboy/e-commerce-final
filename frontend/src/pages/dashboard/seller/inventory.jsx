@@ -14,6 +14,21 @@ import styles from '@/styles/sellerPortal.module.scss';
 
 const emptyProduct = { name: '', description: '', price: '', stock: '', category_id: '', image: '', sizes: '' };
 
+function riderDeliverySummary(order) {
+  const name = order?.rider?.user?.name?.trim();
+  if (name) {
+    const bits = [order?.rider?.phone, order?.rider?.vehicle_plate].filter(Boolean);
+    return { title: name, detail: bits.length ? bits.join(' · ') : null };
+  }
+  if (order?.rider_id) {
+    return {
+      title: 'Rider on file',
+      detail: [order?.rider?.phone, order?.rider?.vehicle_plate].filter(Boolean).join(' · ') || null,
+    };
+  }
+  return { title: null, detail: null };
+}
+
 export default function SellerInventory() {
   const [products, setProducts] = useState([]);
   const [completedOrders, setCompletedOrders] = useState([]);
@@ -207,7 +222,7 @@ export default function SellerInventory() {
                 return (
                   <li
                     key={o.id}
-                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
+                    className={styles.completedOrderRow}
                     onClick={() => setSelectedCompletedOrder(o)}
                   >
                     <div style={{ minWidth: 0 }}>
@@ -227,8 +242,8 @@ export default function SellerInventory() {
                         </span>
                       </div>
                     </div>
-                    <span className={`${styles.badge} ${styles.green}`}>Delivered</span>
-                    <div style={{ fontWeight: 700, color: '#0f172a' }}>₱{total.toFixed(2)}</div>
+                    <span className={`${styles.badge} ${styles.green} ${styles.completedOrderRowStatus}`}>Delivered</span>
+                    <div className={styles.completedOrderRowTotal}>₱{total.toFixed(2)}</div>
                   </li>
                 );
               })}
@@ -261,7 +276,7 @@ export default function SellerInventory() {
                     return (
                       <li
                         key={`all-${o.id}`}
-                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
+                        className={styles.completedOrderRow}
                         onClick={() => {
                           setSelectedCompletedOrder(o);
                           setShowAllCompletedOrders(false);
@@ -284,8 +299,8 @@ export default function SellerInventory() {
                             </span>
                           </div>
                         </div>
-                        <span className={`${styles.badge} ${styles.green}`}>Delivered</span>
-                        <div style={{ fontWeight: 700, color: '#0f172a' }}>₱{total.toFixed(2)}</div>
+                        <span className={`${styles.badge} ${styles.green} ${styles.completedOrderRowStatus}`}>Delivered</span>
+                        <div className={styles.completedOrderRowTotal}>₱{total.toFixed(2)}</div>
                       </li>
                     );
                   })}
@@ -329,6 +344,22 @@ export default function SellerInventory() {
                 </div>
               </div>
             ))}
+            {(() => {
+              const r = riderDeliverySummary(selectedCompletedOrder);
+              return (
+                <div style={{ marginTop: 12, fontSize: 14, color: '#334155' }}>
+                  <strong>Delivered by (rider):</strong>{' '}
+                  {r.title ? (
+                    <span>{r.title}</span>
+                  ) : (
+                    <span style={{ color: '#94a3b8', fontWeight: 500 }}>Not assigned or not recorded</span>
+                  )}
+                  {r.detail ? (
+                    <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{r.detail}</div>
+                  ) : null}
+                </div>
+              );
+            })()}
             {selectedCompletedOrder.received_by && (
               <div style={{ marginTop: 12, fontSize: 14, color: '#334155' }}>
                 <strong>Received by:</strong> {selectedCompletedOrder.received_by}
@@ -388,6 +419,7 @@ export default function SellerInventory() {
               <p style={{ margin: '8px 0 0', fontSize: 14, color: '#94a3b8' }}>Try different filters or add your first product above.</p>
             </div>
           ) : (
+            <div className={styles.tableWrap}>
             <table className={styles.table}>
               <thead>
                 <tr>
@@ -453,6 +485,7 @@ export default function SellerInventory() {
                 })}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>

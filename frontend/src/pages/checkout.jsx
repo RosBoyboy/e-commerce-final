@@ -109,11 +109,16 @@ export default function Checkout() {
     const fullName = user.name || '';
     const [first, ...rest] = fullName.split(' ');
     const last = rest.join(' ');
+    const rawAddr = (user.address || '').trim();
+    const parsed = parseCommaSeparatedAddress(rawAddr);
+    const splitOk = Boolean(parsed.city && parsed.postal);
     setForm((prev) => ({
       ...prev,
       first_name: prev.first_name || first || '',
       last_name: prev.last_name || last || '',
-      address: prev.address || user.address || '',
+      address: splitOk ? (parsed.street || rawAddr) : (prev.address || rawAddr),
+      city: prev.city.trim() ? prev.city : (parsed.city || ''),
+      postal_code: prev.postal_code.trim() ? prev.postal_code : (parsed.postal || ''),
       phone: prev.phone || user.phone || '',
     }));
   }, [user]);
@@ -122,16 +127,22 @@ export default function Checkout() {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleAddressBlur = () => {
-    const v = form.address.trim();
-    if (!v) return;
+  const applyParsedAddress = (rawStreet) => {
+    const v = (rawStreet || '').trim();
+    if (!v) return null;
     const { street, city, postal } = parseCommaSeparatedAddress(v);
-    if (!city || !postal) return;
+    if (!city || !postal) return null;
+    return { street: street || v, city, postal };
+  };
+
+  const handleAddressBlur = () => {
+    const parsed = applyParsedAddress(form.address);
+    if (!parsed) return;
     setForm((prev) => ({
       ...prev,
-      address: street || prev.address,
-      city: prev.city.trim() ? prev.city : city,
-      postal_code: prev.postal_code.trim() ? prev.postal_code : postal,
+      address: parsed.street,
+      city: prev.city.trim() ? prev.city : parsed.city,
+      postal_code: prev.postal_code.trim() ? prev.postal_code : parsed.postal,
     }));
   };
 
@@ -164,9 +175,25 @@ export default function Checkout() {
 
     setSubmitting(true);
     try {
+      let street = form.address.trim();
+      let city = form.city.trim();
+      let postal = form.postal_code.trim();
+      const fromLine = applyParsedAddress(street);
+      if (fromLine && (!city || !postal)) {
+        street = fromLine.street;
+        city = city || fromLine.city;
+        postal = postal || fromLine.postal;
+        setForm((p) => ({
+          ...p,
+          address: street,
+          city: p.city.trim() || fromLine.city,
+          postal_code: p.postal_code.trim() || fromLine.postal,
+        }));
+      }
+
       const shippingAddress = `${form.first_name} ${form.last_name}
-${form.address}
-${form.city} ${form.postal_code}`.trim();
+${street}
+${city} ${postal}`.trim();
 
       const keysOrdered = checkoutItems.map((i) => i.key);
 

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { MessageCircle } from 'lucide-react';
+import { useState } from 'react';
+import { Menu, MessageCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useMessageUnread } from '@/context/MessageUnreadContext';
 import { useProtectedRoute } from '@/hooks/useProtectedRoute';
@@ -16,6 +17,7 @@ const navItems = [
 
 export default function SellerLayout({ children }) {
   const router = useRouter();
+  const [mobileOpen, setMobileOpen] = useState(false);
   const { user, logout } = useAuth();
   const { unreadCount } = useMessageUnread();
   useProtectedRoute('seller');
@@ -33,9 +35,20 @@ export default function SellerLayout({ children }) {
     );
   }
 
+  const closeMobile = () => setMobileOpen(false);
+
   return (
     <div className={styles.portal}>
-      <aside className={styles.sidebar}>
+      <button
+        type="button"
+        className={`${styles.sellerSidebarBackdrop} ${mobileOpen ? styles.sellerSidebarBackdropVisible : ''}`}
+        aria-label="Close menu"
+        onClick={closeMobile}
+      />
+      <aside
+        className={`${styles.sidebar} ${mobileOpen ? styles.sidebarOpen : ''}`}
+        aria-label="Seller navigation"
+      >
         <div className={styles.brand}>
           <span className={styles.logo}>urbanNxt</span>
           <span className={styles.portalLabel}>Seller Portal</span>
@@ -50,13 +63,14 @@ export default function SellerLayout({ children }) {
                 key={item.href}
                 href={item.href}
                 className={`${styles.navItem} ${isActive ? styles.active : ''}`}
+                onClick={closeMobile}
               >
                 <span className={styles.navIcon}>{item.icon}</span>
                 {item.label}
               </Link>
             );
           })}
-          <Link href="/messages" className={styles.navItem}>
+          <Link href="/messages" className={styles.navItem} onClick={closeMobile}>
             <span className={styles.navMessagesIconWrap}>
               <MessageCircle size={20} strokeWidth={1.5} className={styles.navMessagesLucide} aria-hidden />
               {unreadCount > 0 && (
@@ -69,7 +83,12 @@ export default function SellerLayout({ children }) {
           </Link>
         </nav>
         <div className={styles.sidebarFooter}>
-          <Link href="/dashboard/seller/settings" className={styles.userProfile} aria-label="Open store settings">
+          <Link
+            href="/dashboard/seller/settings"
+            className={styles.userProfile}
+            aria-label="Open store settings"
+            onClick={closeMobile}
+          >
             <div className={styles.avatar}>{user.name?.charAt(0)?.toUpperCase() || 'S'}</div>
             <div className={styles.userMeta}>
               <span className={styles.userName}>{user.name}</span>
@@ -81,7 +100,22 @@ export default function SellerLayout({ children }) {
           </button>
         </div>
       </aside>
-      <main className={styles.main}>{children}</main>
+      <main className={styles.main}>
+        <header className={styles.sellerMobileBar}>
+          <button
+            type="button"
+            className={styles.sellerMenuBtn}
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open menu"
+          >
+            <Menu size={22} strokeWidth={1.35} aria-hidden />
+          </button>
+          <Link href="/dashboard/seller" className={styles.sellerMobileBrand} onClick={closeMobile}>
+            urbanNxt Seller
+          </Link>
+        </header>
+        {children}
+      </main>
     </div>
   );
 }

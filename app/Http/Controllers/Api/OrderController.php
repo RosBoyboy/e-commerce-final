@@ -166,53 +166,99 @@ class OrderController extends Controller
             $customerFeedback = trim((string) ($validated['customer_feedback'] ?? ''));
 
             // Send thank-you chat when confirming from shipped, OR when order was already "delivered"
-            // (e.g. rider/admin marked delivered first) but receipt was not yet acknowledged — not only shipped.
+            // (e.g. rider marked delivered first) but receipt was not yet acknowledged.
             $sendThankYouChat = ($current === 'shipped')
                 || ($current === 'delivered' && empty($order->received_by));
 
-            $order->update([
-                'status' => 'delivered',
-                'payment_status' => 'paid',
-                'received_by' => $receivedBy !== '' ? $receivedBy : ($request->user()->name ?? null),
-                'received_at' => now(),
-                'customer_feedback' => $customerFeedback !== '' ? $customerFeedback : null,
-            ]);
-
             $thankYouBody = 'Your UrbanNxt order has arrived! Thank you for choosing us. We hope you love your new look. Feel free to tag us in your photos!';
 
-            if ($sendThankYouChat) {
+            DB::transaction(function () use (
+                $order,
+                $request,
+                $receivedBy,
+                $customerFeedback,
+                $sendThankYouChat,
+                $thankYouBody
+            ) {
+                $order->update([
+                    'status' => 'delivered',
+                    'payment_status' => 'paid',
+                    'received_by' => $receivedBy !== '' ? $receivedBy : ($request->user()->name ?? null),
+                    'received_at' => now(),
+                    'customer_feedback' => $customerFeedback !== '' ? $customerFeedback : null,
+                ]);
+
+                if (!$sendThankYouChat) {
+                    return;
+                }
+
+                $order->loadMissing(['items.product']);
+
                 $customer = $order->customer;
-                $line = $order->items->first(fn ($item) => optional($item->product)->seller_id)
-                    ?? $order->items->first();
-                $product = optional($line)->product;
-                $sellerId = $product->seller_id ?? null;
-
-                if ($customer && $sellerId) {
-                    $conversation = Conversation::firstOrCreate(
-                        [
-                            'seller_id' => $sellerId,
-                            'customer_id' => $customer->id,
-                        ],
-                        ['product_id' => $product->id ?? null]
-                    );
-                    if (!$conversation->product_id && $product && $product->id) {
-                        $conversation->update(['product_id' => $product->id]);
+                $sellerId = null;
+                $product = null;
+                foreach ($order->items as $item) {
+                    $p = $item->product;
+                    if (!$p && $item->product_id) {
+                        $p = Product::query()
+                            ->select(['id', 'seller_id', 'name', 'slug', 'image'])
+                            ->find($item->product_id);
                     }
-
-                    $alreadySent = $conversation->messages()
-                        ->where('user_id', $sellerId)
-                        ->where('body', $thankYouBody)
-                        ->exists();
-
-                    if (!$alreadySent) {
-                        Message::create([
-                            'conversation_id' => $conversation->id,
-                            'user_id' => $sellerId,
-                            'body' => $thankYouBody,
-                        ]);
+                    if ($p && $p->seller_id) {
+                        $sellerId = (int) $p->seller_id;
+                        $product = $p;
+                        break;
                     }
                 }
-            }
+
+                if (!$customer || !$sellerId) {
+                    return;
+                }
+
+                $productId = $product && $product->id ? (int) $product->id : null;
+
+                // Prefer the thread for this product so the thank-you appears in the same chat as
+                // "Message seller" on that product. firstOrCreate(seller,customer) alone can attach
+                // to a different row when multiple conversations exist for the same pair.
+                $conversation = null;
+                if ($productId) {
+                    $conversation = Conversation::query()
+                        ->where('seller_id', $sellerId)
+                        ->where('customer_id', $customer->id)
+                        ->where('product_id', $productId)
+                        ->first();
+                }
+                if (!$conversation) {
+                    $conversation = Conversation::query()
+                        ->where('seller_id', $sellerId)
+                        ->where('customer_id', $customer->id)
+                        ->orderByDesc('updated_at')
+                        ->first();
+                }
+                if (!$conversation) {
+                    $conversation = Conversation::create([
+                        'seller_id' => $sellerId,
+                        'customer_id' => $customer->id,
+                        'product_id' => $productId,
+                    ]);
+                } elseif ($productId && $conversation->product_id === null) {
+                    $conversation->update(['product_id' => $productId]);
+                }
+
+                $alreadySent = $conversation->messages()
+                    ->where('user_id', $sellerId)
+                    ->where('body', $thankYouBody)
+                    ->exists();
+
+                if (!$alreadySent) {
+                    Message::create([
+                        'conversation_id' => $conversation->id,
+                        'user_id' => $sellerId,
+                        'body' => $thankYouBody,
+                    ]);
+                    $conversation->touch();
+                }
+            });
 
             return response()->json(['message' => 'Order receipt confirmed.', 'order' => $order->fresh('items.product')], 200);
         }

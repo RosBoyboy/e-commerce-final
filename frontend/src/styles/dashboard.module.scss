@@ -888,22 +888,63 @@ $admin-sidebar-w: 260px;
 
   .adminProShell .adminSidebarOpen {
     transform: translateX(0);
+    z-index: 60;
+    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.22);
   }
 
   .adminMainWrap {
     margin-left: 0;
     max-width: none;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     padding: 16px 16px 32px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .adminMobileBar {
     display: flex;
+    position: sticky;
+    top: 0;
+    z-index: 15;
+    margin: 0 0 0.75rem;
+    padding: 0.35rem 0;
+    background: linear-gradient(180deg, rgba(244, 246, 251, 0.98) 0%, rgba(244, 246, 251, 0.92) 70%, transparent 100%);
   }
-}
 
-@media (max-width: 900px) {
-  .adminSidebarFixed {
-    width: min(280px, 88vw);
+  .pageHeading {
+    margin-bottom: 1rem;
+
+    h1 {
+      font-size: clamp(1.25rem, 4.5vw, 1.65rem);
+      line-height: 1.2;
+    }
+
+    .subtitle {
+      font-size: 0.875rem;
+      line-height: 1.45;
+    }
+  }
+
+  .adminPro .usersTable {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .adminPro .usersTable table {
+    min-width: 680px;
+  }
+
+  .adminOrdersBody {
+    padding: 16px;
+  }
+
+  .adminPro .adminOrdersHeroTitle {
+    font-size: clamp(1.35rem, 5vw, 1.85rem);
   }
 }
 

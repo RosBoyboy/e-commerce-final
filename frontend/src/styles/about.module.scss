@@ -308,8 +308,22 @@
 }
 
 @media (max-width: 768px) {
+    .aboutHero {
+        .heroBg {
+            height: 260px;
+        }
+
+        h1 {
+            font-size: clamp(1.5rem, 6vw, 2rem);
+        }
+    }
+
     .storySection {
         flex-direction: column;
+
+        .storyContent {
+            min-width: 0;
+        }
 
         .storyImages {
             width: 100%;
@@ -318,11 +332,22 @@
         }
     }
 
-    .newsCTA .ctaInner .ctaForm {
-        width: 100%;
+    .newsCTA .ctaInner {
+        flex-direction: column;
+        align-items: stretch;
 
-        input {
+        .ctaForm {
             width: 100%;
+            min-width: 0;
+            flex-direction: column;
+
+            input {
+                width: 100%;
+            }
+
+            button {
+                width: 100%;
+            }
         }
     }
 }

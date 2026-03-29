@@ -209,6 +209,7 @@ export default function SellerOrders() {
               <p style={{ margin: '8px 0 0', fontSize: 14, color: '#94a3b8' }}>Try a different status or search term.</p>
             </div>
           ) : (
+            <div className={styles.tableWrap}>
             <table className={styles.table}>
               <thead>
                 <tr>
@@ -354,6 +355,7 @@ export default function SellerOrders() {
                 )}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>

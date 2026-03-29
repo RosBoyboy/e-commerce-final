@@ -21,7 +21,10 @@ export default function Layout({ children }) {
   return (
     <>
       <Head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover"
+        />
       </Head>
       {!hideGlobalNav && <Navbar />}
       <main className={mainFullBleed ? undefined : 'container'}>{children}</main>

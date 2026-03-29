@@ -11,6 +11,10 @@ class Order extends Model
 
     protected $fillable = ['customer_id', 'rider_id', 'order_number', 'total_amount', 'status', 'payment_status', 'shipping_address', 'phone', 'received_by', 'received_at', 'customer_feedback'];
 
+    protected $casts = [
+        'received_at' => 'datetime',
+    ];
+
     public function customer()
     {
         return $this->belongsTo(User::class, 'customer_id');

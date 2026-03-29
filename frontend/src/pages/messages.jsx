@@ -46,6 +46,10 @@ function isMessageFromCurrentUser(message, currentUserId) {
   return Number(message.user_id) === Number(currentUserId);
 }
 
+function isFetchCanceled(err) {
+  return err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError';
+}
+
 export default function Messages() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -62,7 +66,8 @@ export default function Messages() {
   const [fleetRiders, setFleetRiders] = useState([]);
   const [assigningRider, setAssigningRider] = useState(false);
   const messagesEndRef = useRef(null);
-  const pollRef = useRef(null);
+  const selectedIdRef = useRef(null);
+  const conversationFetchAbortRef = useRef(null);
   const lastScrolledConvIdRef = useRef(null);
   const prevSelectedRef = useRef(null);
   const { refreshUnread } = useMessageUnread();
@@ -91,6 +96,10 @@ export default function Messages() {
   const isSeller = user?.role?.name === 'seller';
 
   useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
+
+  useEffect(() => {
     if (!isSeller) return;
     fetchSellerRiders()
       .then((res) => setFleetRiders(res.data.riders || []))
@@ -110,17 +119,18 @@ export default function Messages() {
     const listPoll = setInterval(() => {
       if (document.visibilityState !== 'visible') return;
       loadConversations({ silent: true }).then(() => refreshUnread());
-    }, 8000);
+    }, 5000);
     const onVis = () => {
       if (document.visibilityState === 'visible') {
         loadConversations({ silent: true }).then(() => refreshUnread());
       }
     };
     document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('focus', onVis);
     return () => {
       clearInterval(listPoll);
       document.removeEventListener('visibilitychange', onVis);
-      if (pollRef.current) clearInterval(pollRef.current);
+      window.removeEventListener('focus', onVis);
     };
   }, [user?.id, user?.role?.name, authLoading, refreshUnread, loadConversations]);
 
@@ -136,22 +146,47 @@ export default function Messages() {
   };
 
   const loadConversation = useCallback(
-    async (id) => {
-      setMessagesLoading(true);
+    async (id, opts = {}) => {
+      const silent = opts.silent === true;
+      conversationFetchAbortRef.current?.abort();
+      const ac = new AbortController();
+      conversationFetchAbortRef.current = ac;
+
+      if (!silent) setMessagesLoading(true);
       try {
-        const res = await fetchConversation(id);
+        const res = await fetchConversation(id, { signal: ac.signal });
+        if (id !== selectedIdRef.current) return;
+
         setConversation(res.data.conversation || null);
-        setMessages(res.data.messages || []);
+        const nextMessages = res.data.messages || [];
         setActiveOrder(res.data.active_order ?? null);
-        if (lastScrolledConvIdRef.current !== id) {
-          lastScrolledConvIdRef.current = id;
-          setTimeout(scrollToBottom, 100);
+
+        if (silent) {
+          setMessages((prev) => {
+            const prevLast = prev[prev.length - 1]?.id;
+            const nextLast = nextMessages[nextMessages.length - 1]?.id;
+            const grew =
+              nextMessages.length > prev.length || (nextLast != null && nextLast !== prevLast);
+            if (grew) {
+              setTimeout(() => scrollToBottom(), 50);
+            }
+            return nextMessages;
+          });
+        } else {
+          setMessages(nextMessages);
+          if (lastScrolledConvIdRef.current !== id) {
+            lastScrolledConvIdRef.current = id;
+            setTimeout(scrollToBottom, 100);
+          }
         }
       } catch (err) {
+        if (isFetchCanceled(err)) return;
         console.error('Failed to load conversation:', err);
       } finally {
-        setMessagesLoading(false);
-        refreshUnread();
+        if (!silent && id === selectedIdRef.current && !ac.signal.aborted) {
+          setMessagesLoading(false);
+        }
+        if (!ac.signal.aborted) refreshUnread();
       }
     },
     [refreshUnread],
@@ -172,10 +207,32 @@ export default function Messages() {
       setActiveOrder(null);
     }
     lastScrolledConvIdRef.current = null;
-    loadConversation(selectedId);
-    pollRef.current = setInterval(() => loadConversation(selectedId), 4000);
+
+    let intervalId = null;
+    let cancelled = false;
+    const pollMs = 2200;
+    const onVisOrFocus = () => {
+      if (cancelled || document.visibilityState !== 'visible' || !selectedIdRef.current) return;
+      loadConversation(selectedIdRef.current, { silent: true });
+    };
+
+    (async () => {
+      await loadConversation(selectedId);
+      if (cancelled) return;
+      intervalId = setInterval(() => {
+        if (document.visibilityState !== 'visible') return;
+        loadConversation(selectedId, { silent: true });
+      }, pollMs);
+      document.addEventListener('visibilitychange', onVisOrFocus);
+      window.addEventListener('focus', onVisOrFocus);
+    })();
+
     return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
+      cancelled = true;
+      if (intervalId) clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisOrFocus);
+      window.removeEventListener('focus', onVisOrFocus);
+      conversationFetchAbortRef.current?.abort();
     };
   }, [selectedId, loadConversation]);
 
@@ -187,7 +244,7 @@ export default function Messages() {
     try {
       await sendMessageApi(selectedId, text);
       setSendText('');
-      await loadConversation(selectedId);
+      await loadConversation(selectedId, { silent: true });
       scrollToBottom();
     } catch (err) {
       console.error('Send failed:', err);
@@ -203,7 +260,7 @@ export default function Messages() {
     setSending(true);
     try {
       await sendMessageApi(selectedId, t);
-      await loadConversation(selectedId);
+      await loadConversation(selectedId, { silent: true });
       scrollToBottom();
     } catch (err) {
       showToast({ message: err.response?.data?.message || 'Could not send message.', type: 'error' });
@@ -225,7 +282,7 @@ export default function Messages() {
     try {
       await assignSellerOrderRider(activeOrder.id, riderId);
       await sendMessageApi(selectedId, `Rider ${name} has been assigned to your order!`);
-      await loadConversation(selectedId);
+      await loadConversation(selectedId, { silent: true });
       showToast({ message: 'Rider assigned.', type: 'success' });
     } catch (err) {
       showToast({

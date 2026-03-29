@@ -1,14 +1,17 @@
-// Rider portal — deep dark, high contrast, mobile-first
-$bg-deep: #000000;
+// Rider portal — deep navy sidebar + clean light content (mobile-first)
+$main-bg: #f8fafc;
+$text-slate: #1e293b;
+$text-muted-main: #64748b;
+$card-white: #ffffff;
+$card-border: #e2e8f0;
+$card-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 4px 14px rgba(15, 23, 42, 0.05);
+
 $bg-panel: #0f172a;
-$bg-card: #111827;
-$bg-card-elevated: #1e293b;
-$text: #f8fafc;
-$text-muted: #94a3b8;
-$electric: #38bdf8;
-$electric-dim: rgba(56, 189, 248, 0.14);
-$green: #22c55e;
-$green-dim: rgba(34, 197, 94, 0.16);
+$sidebar-fg: rgba(248, 250, 252, 0.75);
+$electric: #0ea5e9;
+$electric-dim: rgba(14, 165, 233, 0.12);
+$green: #16a34a;
+$green-dim: rgba(22, 163, 74, 0.12);
 $radius: 16px;
 $font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
 
@@ -21,8 +24,8 @@ $font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   display: flex;
   min-height: 100vh;
   min-height: 100dvh;
-  background: $bg-deep;
-  color: $text;
+  background: $main-bg;
+  color: $text-slate;
   font-family: $font;
 }
 
@@ -30,7 +33,7 @@ $font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   display: none;
   width: 260px;
   flex-shrink: 0;
-  background: linear-gradient(180deg, #020617 0%, $bg-panel 100%);
+  background: linear-gradient(180deg, #020617 0%, #0f172a 55%, #0c1222 100%);
   flex-direction: column;
   height: 100vh;
   position: fixed;
@@ -38,7 +41,7 @@ $font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   top: 0;
   bottom: 0;
   z-index: 20;
-  box-shadow: 8px 0 32px rgba(0, 0, 0, 0.45);
+  box-shadow: 4px 0 24px rgba(15, 23, 42, 0.12);
 
   @media (min-width: 900px) {
     display: flex;
@@ -57,7 +60,7 @@ $font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   width: 40px;
   height: 40px;
   border-radius: $radius;
-  background: linear-gradient(135deg, $electric 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #38bdf8 0%, #2563eb 100%);
   color: #020617;
   font-weight: 900;
   font-size: 18px;
@@ -100,7 +103,7 @@ $font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   gap: 12px;
   padding: 14px 16px;
   border-radius: $radius;
-  color: rgba(248, 250, 252, 0.75);
+  color: $sidebar-fg;
   text-decoration: none;
   font-size: 15px;
   font-weight: 600;
@@ -116,8 +119,8 @@ $font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
 
 .riderSidebarLinkActive {
   background: $electric-dim;
-  color: $electric;
-  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.25);
+  color: #7dd3fc;
+  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.22);
 }
 
 .riderSidebarFooter {
@@ -135,7 +138,7 @@ $font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   padding: 14px 16px;
   border-radius: $radius;
   background: rgba(255, 255, 255, 0.06);
-  color: rgba(248, 250, 252, 0.85);
+  color: rgba(248, 250, 252, 0.9);
   font-size: 14px;
   font-weight: 600;
   font-family: inherit;
@@ -152,6 +155,7 @@ $font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   display: flex;
   flex-direction: column;
   min-width: 0;
+  background: $main-bg;
 
   @media (min-width: 900px) {
     margin-left: 260px;
@@ -164,12 +168,12 @@ $font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   justify-content: center;
   padding: 14px 16px;
   padding-top: max(14px, env(safe-area-inset-top));
-  background: rgba(15, 23, 42, 0.92);
-  backdrop-filter: blur(12px);
+  background: $card-white;
+  border-bottom: 1px solid $card-border;
   position: sticky;
   top: 0;
   z-index: 10;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
 
   @media (min-width: 900px) {
     display: none;
@@ -177,10 +181,10 @@ $font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
 }
 
 .riderMobileBrand {
-  font-weight: 800;
+  font-weight: 700;
   font-size: 15px;
   letter-spacing: -0.02em;
-  color: #fff;
+  color: $text-slate;
 }
 
 .riderMain {
@@ -201,10 +205,10 @@ $font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   right: 0;
   bottom: 0;
   z-index: 30;
-  background: rgba(15, 23, 42, 0.96);
-  backdrop-filter: blur(16px);
+  background: $card-white;
+  border-top: 1px solid $card-border;
   padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
-  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.06);
   justify-content: space-around;
   align-items: stretch;
   gap: 4px;
@@ -226,7 +230,7 @@ $font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   min-height: 56px;
   border-radius: $radius;
   text-decoration: none;
-  color: $text-muted;
+  color: $text-muted-main;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -239,27 +243,28 @@ $font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   }
 
   &:hover {
-    color: #fff;
-    background: rgba(255, 255, 255, 0.05);
+    color: $text-slate;
+    background: #f1f5f9;
   }
 }
 
 .riderBottomNavItemActive {
-  color: $electric;
+  color: #0284c7;
   background: $electric-dim;
 }
 
 .riderPageTitle {
   margin: 0 0 6px;
   font-size: 1.5rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.03em;
+  color: $text-slate;
 }
 
 .riderPageSub {
   margin: 0 0 20px;
   font-size: 14px;
-  color: $text-muted;
+  color: $text-muted-main;
   line-height: 1.45;
 }
 
@@ -275,10 +280,10 @@ $font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
 
 .riderSectionLabel {
   font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: $text-muted;
+  color: $text-muted-main;
   margin: 24px 0 12px;
 
   &:first-child {
@@ -287,15 +292,29 @@ $font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
 }
 
 .riderCard {
-  background: $bg-card;
+  background: $card-white;
   border-radius: $radius;
   padding: 18px 18px 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  border: 1px solid $card-border;
+  box-shadow: $card-shadow;
   box-sizing: border-box;
 }
 
+.riderCardClickable {
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  width: 100%;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+  }
+}
+
 .riderCardElevated {
-  background: $bg-card-elevated;
+  /* same as riderCard in light mode */
 }
 
 .riderOrderMeta {
@@ -309,15 +328,15 @@ $font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
 
 .riderOrderId {
   font-size: 13px;
-  font-weight: 800;
-  color: $electric;
+  font-weight: 700;
+  color: #0284c7;
   letter-spacing: 0.04em;
 }
 
 .riderOrderStatus {
   font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   padding: 6px 10px;
   border-radius: 999px;
@@ -325,26 +344,27 @@ $font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
 
 .riderStatusActive {
   background: $electric-dim;
-  color: $electric;
+  color: #0369a1;
 }
 
 .riderStatusDone {
   background: $green-dim;
-  color: $green;
+  color: #15803d;
 }
 
 .riderCustomerName {
   margin: 0 0 14px;
-  font-size: 1.15rem;
-  font-weight: 800;
+  font-size: 1.1rem;
+  font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.25;
+  color: $text-slate;
 }
 
 .riderAddress {
   margin: 0 0 16px;
   font-size: 13px;
-  color: $text-muted;
+  color: $text-muted-main;
   line-height: 1.45;
 }
 
@@ -359,7 +379,7 @@ $font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   padding: 12px 16px;
   border-radius: $radius;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   font-family: inherit;
   cursor: pointer;
   text-decoration: none;
@@ -372,25 +392,26 @@ $font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   }
 
   &:not(:disabled):hover {
-    filter: brightness(1.08);
+    filter: brightness(1.05);
   }
 }
 
 .riderBtnPrimary {
   background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
   color: #fff;
-  box-shadow: 0 4px 20px rgba(14, 165, 233, 0.35);
+  box-shadow: 0 4px 16px rgba(14, 165, 233, 0.25);
 }
 
 .riderBtnGhost {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  background: #f1f5f9;
+  color: $text-slate;
+  border: 1px solid $card-border;
 }
 
 .riderBtnSuccess {
   background: linear-gradient(135deg, #16a34a 0%, $green 100%);
   color: #fff;
-  box-shadow: 0 4px 20px rgba(34, 197, 94, 0.3);
+  box-shadow: 0 4px 16px rgba(22, 163, 74, 0.22);
   margin-top: 10px;
 }
 
@@ -401,11 +422,32 @@ $font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
 }
 
 .riderEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
-  padding: 48px 20px;
-  color: $text-muted;
+  gap: 16px;
+  padding: 48px 24px;
+  color: $text-muted-main;
   font-size: 15px;
-  line-height: 1.5;
+  line-height: 1.55;
+  background: $card-white;
+  border: 1px dashed #cbd5e1;
+  border-radius: $radius;
+}
+
+.riderEmptyIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  opacity: 0.85;
+}
+
+.riderEmptyText {
+  max-width: 28rem;
+  margin: 0;
 }
 
 .riderStatGrid {
@@ -416,79 +458,354 @@ $font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   @media (min-width: 600px) {
     grid-template-columns: repeat(2, 1fr);
   }
-
-  @media (min-width: 900px) {
-    grid-template-columns: repeat(2, 1fr);
-  }
 }
 
 .riderStatCard {
-  background: $bg-card;
+  background: $card-white;
   border-radius: $radius;
   padding: 20px;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3);
+  border: 1px solid $card-border;
+  box-shadow: $card-shadow;
 }
 
 .riderStatValue {
-  font-size: 1.75rem;
-  font-weight: 800;
+  font-size: 1.65rem;
+  font-weight: 700;
   letter-spacing: -0.03em;
-  color: #fff;
+  color: $text-slate;
   margin: 0 0 4px;
 }
 
 .riderStatLabel {
   margin: 0;
   font-size: 13px;
-  font-weight: 600;
-  color: $text-muted;
+  font-weight: 500;
+  color: $text-muted-main;
 }
 
-.riderProfileCard {
-  background: $bg-card;
-  border-radius: $radius;
-  padding: 22px;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3);
-  max-width: 520px;
+/* Profile — light card + grid */
+.riderProfileShell {
+  max-width: 560px;
 }
 
-.riderProfileRow {
+.riderProfileHero {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 10px 0;
-  font-size: 14px;
-
-  &:last-child {
-    padding-bottom: 0;
-  }
-
-  &:first-child {
-    padding-top: 0;
-  }
-
-  & + & {
-    box-shadow: 0 -1px 0 0 rgba(255, 255, 255, 0.06);
-    padding-top: 14px;
-  }
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
 }
 
-.riderProfileKey {
-  color: $text-muted;
-  font-weight: 600;
+.riderProfileAvatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #e2e8f0 0%, #f1f5f9 100%);
+  border: 2px solid $card-border;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
   flex-shrink: 0;
 }
 
-.riderProfileVal {
-  color: #fff;
+.riderProfileHeroText h2 {
+  margin: 0 0 4px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: $text-slate;
+  letter-spacing: -0.02em;
+}
+
+.riderProfileHeroText p {
+  margin: 0;
+  font-size: 13px;
+  color: $text-muted-main;
+}
+
+.riderProfileCard {
+  background: $card-white;
+  border-radius: $radius;
+  padding: 8px 0;
+  border: 1px solid $card-border;
+  box-shadow: $card-shadow;
+  display: grid;
+  gap: 0;
+}
+
+.riderProfileField {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 12px 16px;
+  padding: 14px 20px;
+  border-bottom: 1px solid #f1f5f9;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.riderProfileIconCol {
+  padding-top: 2px;
+  color: #64748b;
+}
+
+.riderProfileFieldBody {
+  min-width: 0;
+}
+
+.riderProfileFieldLabel {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: $text-muted-main;
+  margin-bottom: 4px;
+}
+
+.riderProfileFieldValue {
+  font-size: 15px;
   font-weight: 600;
-  text-align: right;
+  color: $text-slate;
   word-break: break-word;
 }
 
+/* Task detail slide-over */
+.riderModalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  z-index: 100;
+  animation: riderFadeIn 0.2s ease;
+}
+
+.riderModalPanel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  max-width: 440px;
+  background: $card-white;
+  z-index: 101;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -8px 0 40px rgba(15, 23, 42, 0.12);
+  animation: riderSlideIn 0.25s ease;
+
+  @media (max-width: 599px) {
+    max-width: none;
+    width: 100%;
+  }
+}
+
+@keyframes riderFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes riderSlideIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.riderModalHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid $card-border;
+  flex-shrink: 0;
+}
+
+.riderModalTitle {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: $text-slate;
+}
+
+.riderModalClose {
+  @include no-border;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  color: $text-slate;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  &:hover {
+    background: #e2e8f0;
+  }
+}
+
+.riderModalBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.riderModalSection {
+  margin-bottom: 22px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.riderModalSectionTitle {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: $text-muted-main;
+  margin: 0 0 10px;
+}
+
+.riderDetailLineList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.riderDetailLineItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 14px;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.riderDetailThumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #f1f5f9;
+  flex-shrink: 0;
+}
+
+.riderDetailLineMeta {
+  flex: 1;
+  min-width: 0;
+}
+
+.riderDetailLineName {
+  font-weight: 600;
+  color: $text-slate;
+}
+
+.riderDetailLineSub {
+  font-size: 12px;
+  color: $text-muted-main;
+  margin-top: 2px;
+}
+
+.riderDetailLinePrice {
+  font-weight: 600;
+  color: $text-slate;
+  white-space: nowrap;
+}
+
+.riderDetailTotal {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 12px;
+  margin-top: 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: $text-slate;
+}
+
+.riderDetailCallBtn {
+  @include no-border;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: #ecfdf5;
+  color: #047857;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  border: 1px solid #a7f3d0;
+
+  &:hover {
+    background: #d1fae5;
+  }
+}
+
+.riderTimeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.riderTimelineRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 14px;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.riderTimelineLabel {
+  color: $text-muted-main;
+  font-weight: 500;
+}
+
+.riderTimelineVal {
+  color: $text-slate;
+  font-weight: 600;
+  text-align: right;
+}
+
+.riderProofPlaceholder {
+  min-height: 120px;
+  border-radius: 12px;
+  border: 2px dashed #cbd5e1;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 16px;
+  font-size: 13px;
+  color: $text-muted-main;
+  line-height: 1.45;
+}
+
 .riderMuted {
-  color: $text-muted;
+  color: $text-muted-main;
   font-size: 14px;
 }
 
@@ -496,10 +813,11 @@ $font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   display: inline-block;
   width: 18px;
   height: 18px;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  border-top-color: $electric;
+  border: 2px solid #e2e8f0;
+  border-top-color: #2563eb;
   border-radius: 50%;
   animation: riderSpin 0.7s linear infinite;
+  vertical-align: middle;
 }
 
 @keyframes riderSpin {
