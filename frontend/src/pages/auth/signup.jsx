@@ -1,16 +1,22 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { Bike, User } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { parseCommaSeparatedAddress } from '@/utils/parseAddress';
 import styles from '@/styles/auth.module.scss';
 
+const RIDER_DOMAIN = 'rider.com';
+
 export default function Signup() {
   const router = useRouter();
   const { register } = useAuth();
+  const [accountType, setAccountType] = useState('customer'); // customer | rider
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    riderEmailLocal: '',
+    vehiclePlate: '',
     password: '',
     passwordConfirmation: '',
     phone: '',
@@ -22,6 +28,12 @@ export default function Signup() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (router.query.type === 'rider') {
+      setAccountType('rider');
+    }
+  }, [router.query.type]);
 
   const handleChange = (e) => {
     setFormData({
@@ -71,18 +83,52 @@ export default function Signup() {
     }
 
     const address = `${line}, ${city}, ${postal}`;
+    const role = accountType === 'rider' ? 'rider' : 'customer';
+
+    let email = formData.email.trim();
+    if (role === 'rider') {
+      let local = formData.riderEmailLocal.trim().toLowerCase();
+      if (local.includes('@')) {
+        const [u, dom] = local.split('@');
+        if (dom === RIDER_DOMAIN) {
+          local = u;
+        } else {
+          setError(`Delivery partner emails must end with @${RIDER_DOMAIN}.`);
+          setLoading(false);
+          return;
+        }
+      }
+      if (!local || local.length < 2) {
+        setError(`Choose a username for your @${RIDER_DOMAIN} email (at least 2 characters).`);
+        setLoading(false);
+        return;
+      }
+      if (!/^[a-z0-9][a-z0-9._-]{0,62}$/i.test(local)) {
+        setError('Email username may only contain letters, numbers, dots, underscores, and hyphens.');
+        setLoading(false);
+        return;
+      }
+      email = `${local}@${RIDER_DOMAIN}`;
+      const plate = formData.vehiclePlate.trim();
+      if (!plate) {
+        setError('Vehicle plate is required for delivery partner accounts.');
+        setLoading(false);
+        return;
+      }
+    }
 
     try {
       await register(
         formData.name,
-        formData.email,
+        email,
         formData.password,
         formData.passwordConfirmation,
-        'customer',
+        role,
         phone,
         address,
+        role === 'rider' ? formData.vehiclePlate.trim() : '',
       );
-      router.push('/dashboard/customer');
+      router.push(role === 'rider' ? '/dashboard/rider' : '/dashboard/customer');
     } catch (err) {
       const status = err.response?.status;
       const data = err.response?.data;
@@ -108,12 +154,46 @@ export default function Signup() {
 
   return (
     <div className={styles.authContainer}>
-      <div className={styles.authCard}>
+      <div className={`${styles.authCard} ${styles.authCardSignup}`}>
         <div className={styles.authIconWrap}>
-          <span className={styles.authIcon} aria-hidden>👤</span>
+          <span className={styles.authIcon} aria-hidden>
+            {accountType === 'rider' ? <Bike size={34} strokeWidth={2} /> : <User size={34} strokeWidth={2} />}
+          </span>
         </div>
         <h1 className={styles.authTitle}>Create an account</h1>
-        <p className={styles.authSubtitle}>Enter your details to sign up as a customer.</p>
+        <p className={styles.authSubtitle}>
+          {accountType === 'rider'
+            ? `Delivery partners use @${RIDER_DOMAIN} emails. Anyone can register — no fixed cap.`
+            : 'Enter your details to shop on urbanNxt.'}
+        </p>
+
+        <div className={styles.authRoleTabs} role="tablist" aria-label="Account type">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={accountType === 'customer'}
+            className={`${styles.authRoleTab} ${accountType === 'customer' ? styles.authRoleTabActive : ''}`}
+            onClick={() => {
+              setAccountType('customer');
+              setError('');
+            }}
+          >
+            Customer
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={accountType === 'rider'}
+            className={`${styles.authRoleTab} ${accountType === 'rider' ? styles.authRoleTabActive : ''}`}
+            onClick={() => {
+              setAccountType('rider');
+              setError('');
+            }}
+          >
+            Delivery partner
+          </button>
+        </div>
+
         {error && <div className={styles.error}>{error}</div>}
 
         <form onSubmit={handleSubmit}>
@@ -130,22 +210,61 @@ export default function Signup() {
             />
           </div>
 
-          <div className={styles.formGroup}>
-            <label htmlFor="email">Email</label>
-            <div className={styles.inputWrap}>
-              <span className={styles.inputIcon} aria-hidden>✉</span>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                placeholder="Enter your email"
-                className={styles.inputWithIcon}
-              />
+          {accountType === 'customer' ? (
+            <div className={styles.formGroup}>
+              <label htmlFor="email">Email</label>
+              <div className={styles.inputWrap}>
+                <span className={styles.inputIcon} aria-hidden>✉</span>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                  placeholder="you@example.com"
+                  className={styles.inputWithIcon}
+                  autoComplete="email"
+                />
+              </div>
             </div>
-          </div>
+          ) : (
+            <>
+              <div className={styles.formGroup}>
+                <label htmlFor="riderEmailLocal">Rider email</label>
+                <p className={styles.authFieldHint}>Your login will always be username@{RIDER_DOMAIN}</p>
+                <div className={styles.riderEmailRow}>
+                  <input
+                    type="text"
+                    id="riderEmailLocal"
+                    name="riderEmailLocal"
+                    value={formData.riderEmailLocal}
+                    onChange={handleChange}
+                    required
+                    placeholder="your.name"
+                    autoComplete="username"
+                    spellCheck={false}
+                    className={styles.riderEmailLocalInput}
+                  />
+                  <span className={styles.riderEmailSuffix}>@{RIDER_DOMAIN}</span>
+                </div>
+              </div>
+              <div className={styles.formGroup}>
+                <label htmlFor="vehiclePlate">Vehicle plate</label>
+                <input
+                  type="text"
+                  id="vehiclePlate"
+                  name="vehiclePlate"
+                  value={formData.vehiclePlate}
+                  onChange={handleChange}
+                  required
+                  placeholder="e.g. ABC-1234"
+                  autoComplete="off"
+                  maxLength={32}
+                />
+              </div>
+            </>
+          )}
 
           <div className={styles.formGroup}>
             <label htmlFor="phone">Phone</label>

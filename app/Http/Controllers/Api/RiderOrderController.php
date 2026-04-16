@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Rider;
+use App\Services\OrderChatService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use DateTimeInterface;
@@ -121,10 +122,43 @@ class RiderOrderController extends Controller
 
         Rider::syncAvailability($rider->id);
 
+        $order = $order->fresh(['customer:id,name,email,phone', 'items.product:id,name,image,slug,price,seller_id']);
+        OrderChatService::sendSellerAutomatedMessage(
+            $order,
+            OrderChatService::bodyRiderDelivered($order),
+            'delivered'
+        );
+
+        return response()->json([
+            'message' => 'Order marked as completed.',
+            'order' => $this->serializeOrderForRider($order),
+        ], 200);
+    }
+
+    /**
+     * Rider confirms they have picked up the parcel (out for delivery).
+     */
+    public function markPickedUp(Request $request, $id)
+    {
+        $rider = $this->ensureRider($request);
+
+        $order = Order::where('id', $id)
+            ->where('rider_id', $rider->id)
+            ->where('status', 'shipped')
+            ->firstOrFail();
+
+        if ($order->picked_up_at) {
+            return response()->json([
+                'message' => 'Pickup was already recorded.',
+                'order' => $this->serializeOrderForRider($order->load(['customer:id,name,email,phone', 'items.product:id,name,image,slug,price'])),
+            ], 200);
+        }
+
+        $order->update(['picked_up_at' => now()]);
         $order->load(['customer:id,name,email,phone', 'items.product:id,name,image,slug,price']);
 
         return response()->json([
-            'message' => 'Order marked as delivered.',
+            'message' => 'Pickup recorded. You are out for delivery.',
             'order' => $this->serializeOrderForRider($order),
         ], 200);
     }
@@ -142,7 +176,46 @@ class RiderOrderController extends Controller
                 'id' => $rider->id,
                 'phone' => $rider->phone,
                 'vehicle_plate' => $rider->vehicle_plate,
-                'status' => $rider->status, 
+                'address' => $rider->address,
+                'status' => $rider->status,
+                'name' => $rider->user ? $rider->user->name : null,
+                'email' => $rider->user ? $rider->user->email : null,
+            ],
+        ], 200);
+    }
+
+    /**
+     * Rider updates contact, vehicle, and base address (ride / dispatch info).
+     */
+    public function updateProfile(Request $request)
+    {
+        $rider = $this->ensureRider($request);
+        $validated = $request->validate([
+            'phone' => 'sometimes|nullable|string|max:32',
+            'vehicle_plate' => 'sometimes|string|max:32',
+            'address' => 'sometimes|nullable|string|max:2000',
+        ]);
+
+        if (array_key_exists('phone', $validated)) {
+            $rider->phone = $validated['phone'];
+        }
+        if (array_key_exists('vehicle_plate', $validated)) {
+            $rider->vehicle_plate = $validated['vehicle_plate'] !== '' ? $validated['vehicle_plate'] : $rider->vehicle_plate;
+        }
+        if (array_key_exists('address', $validated)) {
+            $rider->address = $validated['address'];
+        }
+        $rider->save();
+        $rider->load('user:id,name,email,phone');
+
+        return response()->json([
+            'message' => 'Profile updated.',
+            'rider' => [
+                'id' => $rider->id,
+                'phone' => $rider->phone,
+                'vehicle_plate' => $rider->vehicle_plate,
+                'address' => $rider->address,
+                'status' => $rider->status,
                 'name' => $rider->user ? $rider->user->name : null,
                 'email' => $rider->user ? $rider->user->email : null,
             ],
@@ -202,6 +275,7 @@ class RiderOrderController extends Controller
             'created_at' => $this->dateToIso($o->created_at),
             'updated_at' => $this->dateToIso($o->updated_at),
             'received_at' => $this->dateToIso($o->received_at),
+            'picked_up_at' => $this->dateToIso($o->picked_up_at),
         ];
     }
 }

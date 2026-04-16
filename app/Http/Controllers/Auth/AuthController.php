@@ -3,16 +3,22 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\Rider;
 use App\Models\User;
 use App\Models\Role;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    /** Reserved domain for delivery partner (rider) accounts — not valid for customer signup. */
+    private const RIDER_EMAIL_DOMAIN = 'rider.com';
+
     /**
-     * Register a new user
+     * Register a new user (customer or rider).
+     * Riders must use an @rider.com address; that domain is not allowed for customers.
      */
     public function register(Request $request)
     {
@@ -23,29 +29,64 @@ class AuthController extends Controller
                 'password' => 'required|string|min:8|confirmed',
                 'phone' => 'required|string|max:20',
                 'address' => 'required|string|min:10|max:2000',
+                'role' => 'nullable|string|in:customer,rider',
+                'vehicle_plate' => 'required_if:role,rider|nullable|string|max:32',
             ],
             [
                 'email.unique' => 'This email is already in use.',
             ]
         );
 
-        // Only customer accounts can be created via public signup; seller/admin are created by admin.
-        $role = Role::where('name', 'customer')->first();
-        if (!$role) {
-            return response()->json(['message' => 'Registration not available.'], 400);
+        $roleName = $validated['role'] ?? 'customer';
+        $email = strtolower(trim($validated['email']));
+        $domain = self::RIDER_EMAIL_DOMAIN;
+        $mustBeRiderEmail = str_ends_with($email, '@' . $domain);
+
+        if ($roleName === 'rider') {
+            if (!$mustBeRiderEmail) {
+                throw ValidationException::withMessages([
+                    'email' => ["Delivery partner accounts must register with an email ending in @{$domain}."],
+                ]);
+            }
+            $role = Role::where('name', 'rider')->first();
+            if (!$role) {
+                return response()->json(['message' => 'Rider registration is not available.'], 400);
+            }
+        } else {
+            if ($mustBeRiderEmail) {
+                throw ValidationException::withMessages([
+                    'email' => ["The @{$domain} address is reserved for delivery partners. Choose “Delivery partner” signup or use another email."],
+                ]);
+            }
+            $role = Role::where('name', 'customer')->first();
+            if (!$role) {
+                return response()->json(['message' => 'Registration not available.'], 400);
+            }
         }
 
-        // Create user
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-            'phone' => $validated['phone'] ?? null,
-            'address' => $validated['address'] ?? null,
-            'role_id' => $role->id,
-        ]);
+        $user = DB::transaction(function () use ($validated, $email, $role, $roleName) {
+            $user = User::create([
+                'name' => $validated['name'],
+                'email' => $email,
+                'password' => Hash::make($validated['password']),
+                'phone' => $validated['phone'] ?? null,
+                'address' => $validated['address'] ?? null,
+                'role_id' => $role->id,
+            ]);
 
-        // Create token
+            if ($roleName === 'rider') {
+                Rider::create([
+                    'user_id' => $user->id,
+                    'phone' => $validated['phone'],
+                    'vehicle_plate' => $validated['vehicle_plate'],
+                    'address' => $validated['address'],
+                    'status' => 'available',
+                ]);
+            }
+
+            return $user;
+        });
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([

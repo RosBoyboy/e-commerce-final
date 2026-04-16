@@ -38,7 +38,7 @@ export default function Login() {
         } catch (_) {}
       }
       if (userRole === 'customer') router.push('/dashboard/customer');
-      else if (userRole === 'seller') router.push('/dashboard/seller');
+      else if (userRole === 'seller') router.push('/dashboard/admin');
       else if (userRole === 'admin') router.push('/dashboard/admin');
       else if (userRole === 'rider') router.push('/dashboard/rider');
       else router.push('/');

@@ -62,7 +62,7 @@ export default function RiderEarnings() {
             <div className={styles.riderStatCard}>
               <TrendingUp size={22} strokeWidth={1.75} style={{ color: '#22c55e', marginBottom: 8 }} aria-hidden />
               <p className={styles.riderStatValue}>{s.delivered_today ?? 0}</p>
-              <p className={styles.riderStatLabel}>Deliveries completed today</p>
+              <p className={styles.riderStatLabel}>Orders completed today</p>
             </div>
             <div className={styles.riderStatCard}>
               <p className={styles.riderStatValue}>{s.active_deliveries ?? 0}</p>

@@ -7,10 +7,11 @@ import {
   Package,
   PackageCheck,
   Phone,
+  Truck,
   X,
 } from 'lucide-react';
 import { useProtectedRoute } from '@/hooks/useProtectedRoute';
-import { fetchRiderOrders, riderMarkDelivered } from '@/services/api';
+import { fetchRiderOrders, fetchRiderStats, riderMarkDelivered, riderMarkPickedUp } from '@/services/api';
 import { useToast } from '@/components/ui/ToastProvider';
 import RiderLayout from '@/components/rider/RiderLayout';
 import { productImageUrl } from '@/utils/image';
@@ -69,36 +70,80 @@ export default function RiderTasks() {
   const [active, setActive] = useState([]);
   const [recentDelivered, setRecentDelivered] = useState([]);
   const [deliveringId, setDeliveringId] = useState(null);
+  const [pickingUpId, setPickingUpId] = useState(null);
   const [detailOrder, setDetailOrder] = useState(null);
+  const [stats, setStats] = useState(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (opts = {}) => {
+    const silent = opts.silent === true;
+    if (!silent) setLoading(true);
     try {
       const { data } = await fetchRiderOrders();
       setActive(data?.active || []);
       setRecentDelivered(data?.recent_delivered || []);
     } catch (e) {
       console.error(e);
-      showToast({
-        message: e.response?.data?.message || 'Could not load your deliveries.',
-        type: 'error',
-      });
+      if (!silent) {
+        showToast({
+          message: e.response?.data?.message || 'Could not load your deliveries.',
+          type: 'error',
+        });
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [showToast]);
+
+  const loadStats = useCallback(async () => {
+    try {
+      const { data } = await fetchRiderStats();
+      setStats(data?.stats || null);
+    } catch {
+      /* non-blocking */
+    }
+  }, []);
 
   useEffect(() => {
     load();
   }, [load]);
 
+  useEffect(() => {
+    loadStats();
+    const t = setInterval(() => {
+      loadStats();
+      load();
+    }, 30000);
+    return () => clearInterval(t);
+  }, [load, loadStats]);
+
+  const handlePickup = async (orderId) => {
+    setPickingUpId(orderId);
+    try {
+      const { data } = await riderMarkPickedUp(orderId);
+      showToast({ message: data?.message || 'Pickup recorded.', type: 'success' });
+      const ord = data?.order;
+      if (ord) {
+        setDetailOrder((prev) => (prev && prev.id === ord.id ? { ...prev, ...ord } : prev));
+      }
+      await load({ silent: true });
+    } catch (e) {
+      console.error(e);
+      showToast({
+        message: e.response?.data?.message || 'Could not record pickup.',
+        type: 'error',
+      });
+    } finally {
+      setPickingUpId(null);
+    }
+  };
+
   const handleDeliver = async (orderId) => {
     setDeliveringId(orderId);
     try {
       await riderMarkDelivered(orderId);
-      showToast({ message: 'Marked as delivered.', type: 'success' });
+      showToast({ message: 'Order marked as completed.', type: 'success' });
       setDetailOrder(null);
-      await load();
+      await load({ silent: true });
     } catch (e) {
       console.error(e);
       showToast({
@@ -130,7 +175,7 @@ export default function RiderTasks() {
               isActive ? styles.riderStatusActive : styles.riderStatusDone
             }`}
           >
-            {isActive ? 'Out for delivery' : 'Delivered'}
+            {isActive ? 'Out for delivery' : 'Completed'}
           </span>
         </div>
         <h2 className={styles.riderCustomerName}>{order.customer?.name || 'Customer'}</h2>
@@ -139,8 +184,28 @@ export default function RiderTasks() {
         ) : (
           <p className={styles.riderAddress}>No address on file — open details or contact support.</p>
         )}
+        {isActive && order.picked_up_at ? (
+          <p className={styles.riderMuted} style={{ margin: '0 0 10px', fontSize: 13 }}>
+            Picked up {formatWhen(order.picked_up_at)}
+          </p>
+        ) : null}
         {isActive ? (
           <div className={styles.riderBtnStack} onClick={(e) => e.stopPropagation()}>
+            {!order.picked_up_at ? (
+              <button
+                type="button"
+                className={`${styles.riderBtn} ${styles.riderBtnGhost}`}
+                disabled={pickingUpId === order.id}
+                onClick={() => handlePickup(order.id)}
+              >
+                {pickingUpId === order.id ? (
+                  <span className={styles.riderSpinner} aria-hidden />
+                ) : (
+                  <Truck size={20} strokeWidth={2} aria-hidden />
+                )}
+                Confirm pickup
+              </button>
+            ) : null}
             <a
               className={`${styles.riderBtn} ${styles.riderBtnPrimary}`}
               href={mapsHref}
@@ -172,7 +237,7 @@ export default function RiderTasks() {
               ) : (
                 <CheckCircle2 size={20} strokeWidth={2} aria-hidden />
               )}
-              Mark as delivered
+              Mark as completed
             </button>
           </div>
         ) : (
@@ -194,11 +259,36 @@ export default function RiderTasks() {
   return (
     <>
       <Head>
-        <title>My Tasks — Rider</title>
+        <title>Tracking — Rider</title>
       </Head>
       <RiderLayout activeKey="tasks">
-        <h1 className={styles.riderPageTitle}>My Tasks</h1>
-        <p className={styles.riderPageSub}>Active deliveries and your latest completed drops.</p>
+        <h1 className={styles.riderPageTitle}>Delivery tracking</h1>
+        <p className={styles.riderPageSub}>
+          See active runs, line items, and drop-off addresses. Refreshes every 30 seconds.
+        </p>
+
+        {stats && (
+          <div className={styles.riderTrackStats} aria-label="Delivery summary">
+            <div className={styles.riderTrackStat}>
+              <p className={styles.riderTrackStatVal}>{stats.active_deliveries ?? 0}</p>
+              <p className={styles.riderTrackStatLbl}>Active now</p>
+            </div>
+            <div className={styles.riderTrackStat}>
+              <p className={styles.riderTrackStatVal}>{stats.delivered_today ?? 0}</p>
+              <p className={styles.riderTrackStatLbl}>Completed today</p>
+            </div>
+            <div className={styles.riderTrackStat}>
+              <p className={styles.riderTrackStatVal}>
+                ₱{Number(stats.revenue_today || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+              </p>
+              <p className={styles.riderTrackStatLbl}>Revenue today</p>
+            </div>
+            <div className={styles.riderTrackStat}>
+              <p className={styles.riderTrackStatVal}>{stats.delivered_last_7_days ?? 0}</p>
+              <p className={styles.riderTrackStatLbl}>Completed (7 days)</p>
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <p className={styles.riderMuted}>
@@ -217,14 +307,14 @@ export default function RiderTasks() {
               <div className={styles.riderGrid}>{active.map((order) => renderOrderCard(order, { isActive: true }))}</div>
             )}
 
-            <p className={styles.riderSectionLabel}>Recent delivered</p>
+            <p className={styles.riderSectionLabel}>Recent completed</p>
             {recentDelivered.length === 0 ? (
               <div className={styles.riderEmpty} style={{ marginBottom: 8 }}>
                 <span className={styles.riderEmptyIcon} aria-hidden>
                   <PackageCheck size={48} strokeWidth={1.35} />
                 </span>
                 <p className={styles.riderEmptyText}>
-                  No completed deliveries yet. Finished drops you&apos;ve marked as delivered will show here (up to 20).
+                  No completed orders yet. Finished drops you&apos;ve marked as completed will show here (up to 20).
                 </p>
               </div>
             ) : (
@@ -255,7 +345,7 @@ export default function RiderTasks() {
                   #{d.order_number || d.id}
                 </h2>
                 <p className={styles.riderMuted} style={{ margin: '4px 0 0', fontSize: 13 }}>
-                  {(d.status || '').toLowerCase() === 'shipped' ? 'Out for delivery' : 'Delivered'}
+                  {(d.status || '').toLowerCase() === 'shipped' ? 'Out for delivery' : 'Completed'}
                 </p>
               </div>
               <button type="button" className={styles.riderModalClose} onClick={closeDetail} aria-label="Close">
@@ -364,10 +454,12 @@ export default function RiderTasks() {
                   </div>
                   <div className={styles.riderTimelineRow}>
                     <span className={styles.riderTimelineLabel}>Picked up</span>
-                    <span className={styles.riderTimelineVal}>Not recorded</span>
+                    <span className={styles.riderTimelineVal}>
+                      {d.picked_up_at ? formatWhen(d.picked_up_at) : '—'}
+                    </span>
                   </div>
                   <div className={styles.riderTimelineRow}>
-                    <span className={styles.riderTimelineLabel}>Delivered</span>
+                    <span className={styles.riderTimelineLabel}>Completed</span>
                     <span className={styles.riderTimelineVal}>
                       {(d.status || '').toLowerCase() === 'delivered' ? formatWhen(d.updated_at) : '—'}
                     </span>
@@ -394,6 +486,22 @@ export default function RiderTasks() {
 
               {isDetailActive ? (
                 <div className={styles.riderModalSection}>
+                  {!d.picked_up_at ? (
+                    <button
+                      type="button"
+                      className={`${styles.riderBtn} ${styles.riderBtnGhost}`}
+                      style={{ width: '100%', marginBottom: 10 }}
+                      disabled={pickingUpId === d.id}
+                      onClick={() => handlePickup(d.id)}
+                    >
+                      {pickingUpId === d.id ? (
+                        <span className={styles.riderSpinner} aria-hidden />
+                      ) : (
+                        <Truck size={20} strokeWidth={2} aria-hidden />
+                      )}
+                      Confirm pickup (have the parcel)
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className={`${styles.riderBtn} ${styles.riderBtnSuccess}`}
@@ -405,7 +513,7 @@ export default function RiderTasks() {
                     ) : (
                       <CheckCircle2 size={20} strokeWidth={2} aria-hidden />
                     )}
-                    Mark as delivered
+                    Mark as completed
                   </button>
                 </div>
               ) : null}

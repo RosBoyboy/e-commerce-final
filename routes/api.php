@@ -6,10 +6,8 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Api\OrderController;
-use App\Http\Controllers\Api\SellerProductController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\ConversationController;
-use App\Http\Controllers\Api\SellerOrderController;
 use App\Http\Controllers\Api\RiderOrderController;
 use App\Http\Controllers\Api\CartController;
 
@@ -43,20 +41,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/orders', [RiderOrderController::class, 'orders']);
         Route::get('/stats', [RiderOrderController::class, 'stats']);
         Route::get('/profile', [RiderOrderController::class, 'profile']);
+        Route::patch('/profile', [RiderOrderController::class, 'updateProfile']);
         Route::patch('/orders/{id}/deliver', [RiderOrderController::class, 'markDelivered']);
-    });
-});
-
-Route::middleware('auth:sanctum')->group(function () {
-    Route::prefix('seller')->group(function () {
-        Route::get('/products', [SellerProductController::class, 'index']);
-        Route::post('/products', [SellerProductController::class, 'store']);
-        Route::put('/products/{id}', [SellerProductController::class, 'update']);
-        Route::delete('/products/{id}', [SellerProductController::class, 'destroy']);
-        Route::get('/orders', [SellerOrderController::class, 'index']);
-        Route::patch('/orders/{id}/status', [SellerOrderController::class, 'updateStatus']);
-        Route::get('/riders', [SellerOrderController::class, 'riders']);
-        Route::patch('/orders/{id}/assign-rider', [SellerOrderController::class, 'assignRider']);
+        Route::patch('/orders/{id}/pickup', [RiderOrderController::class, 'markPickedUp']);
     });
 });
 
@@ -85,6 +72,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Orders
         Route::get('/orders', [AdminController::class, 'orders']);
+        Route::get('/inventory-report', [AdminController::class, 'inventoryReport']);
         Route::patch('/orders/{id}/status', [AdminController::class, 'updateOrderStatus']);
         Route::patch('/orders/{id}/assign-rider', [AdminController::class, 'assignOrderRider']);
 
@@ -98,6 +86,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/products/permanent-batch', [AdminController::class, 'permanentDeleteProductsBatch']);
         Route::patch('/products/{id}/archive', [AdminController::class, 'archiveProduct']);
         Route::patch('/products/{id}/restore', [AdminController::class, 'restoreProduct']);
+        Route::patch('/products/{id}/approve', [AdminController::class, 'approveProduct']);
+        Route::patch('/products/{id}/reject', [AdminController::class, 'rejectProduct']);
         Route::get('/products', [AdminController::class, 'products']);
         Route::post('/products', [AdminController::class, 'storeProduct']);
         Route::put('/products/{id}', [AdminController::class, 'updateProduct']);

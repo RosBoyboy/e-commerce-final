@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import {
   BarChart3,
+  Boxes,
   LayoutDashboard,
   Layers,
   LogOut,
@@ -19,6 +20,7 @@ const TABS = [
   { key: 'overview', label: 'Dashboard', icon: LayoutDashboard },
   { key: 'orders', label: 'Orders', icon: Package },
   { key: 'products', label: 'Products', icon: Tag },
+  { key: 'inventory', label: 'Inventory', icon: Boxes },
   { key: 'categories', label: 'Categories', icon: Layers },
   { key: 'customers', label: 'Customers', icon: UsersIcon },
   { key: 'analytics', label: 'Analytics', icon: BarChart3 },

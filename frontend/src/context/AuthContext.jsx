@@ -6,6 +6,7 @@ import {
   logoutRequest,
   fetchCurrentUser,
 } from '@/services/api';
+import { disconnectEcho } from '@/lib/echo';
 
 const AuthCtx = createContext({
   user: null,
@@ -74,8 +75,9 @@ export function AuthProvider({ children }) {
     role,
     phone = '',
     address = '',
+    vehiclePlate = '',
   ) => {
-    const { data } = await registerRequest({
+    const payload = {
       name,
       email,
       password,
@@ -83,7 +85,11 @@ export function AuthProvider({ children }) {
       role,
       phone,
       address,
-    });
+    };
+    if (role === 'rider' && vehiclePlate) {
+      payload.vehicle_plate = vehiclePlate;
+    }
+    const { data } = await registerRequest(payload);
     setAuthToken(data.token);
     setToken(data.token);
     setUser(data.user);
@@ -96,6 +102,7 @@ export function AuthProvider({ children }) {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
+      disconnectEcho();
       setToken(null);
       setUser(null);
     }

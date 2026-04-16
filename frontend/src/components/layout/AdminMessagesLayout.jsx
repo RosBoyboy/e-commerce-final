@@ -7,20 +7,15 @@ import { useMessageUnread } from '@/context/MessageUnreadContext';
 import { useProtectedRoute } from '@/hooks/useProtectedRoute';
 import styles from '@/styles/sellerPortal.module.scss';
 
-const navItems = [
-  { href: '/dashboard/seller', label: 'Dashboard', icon: '▦' },
-  { href: '/dashboard/seller/inventory', label: 'My Inventory', icon: '▤' },
-  { href: '/dashboard/seller/orders', label: 'Manage Orders', icon: '🛒' },
-  { href: '/dashboard/seller/analytics', label: 'Analytics', icon: '▥' },
-  { href: '/dashboard/seller/payouts', label: 'Payouts', icon: '₱' },
-];
-
-export default function SellerLayout({ children }) {
+/**
+ * Shell for /messages when logged in as admin (seller portal removed; admin handles store chat).
+ */
+export default function AdminMessagesLayout({ children }) {
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, logout } = useAuth();
   const { unreadCount } = useMessageUnread();
-  useProtectedRoute('seller');
+  useProtectedRoute('admin');
 
   const handleLogout = async () => {
     await logout();
@@ -47,30 +42,26 @@ export default function SellerLayout({ children }) {
       />
       <aside
         className={`${styles.sidebar} ${mobileOpen ? styles.sidebarOpen : ''}`}
-        aria-label="Seller navigation"
+        aria-label="Admin navigation"
       >
         <div className={styles.brand}>
           <span className={styles.logo}>urbanNxt</span>
-          <span className={styles.portalLabel}>Seller Portal</span>
+          <span className={styles.portalLabel}>Admin</span>
         </div>
         <nav className={styles.nav}>
-          {navItems.map((item) => {
-            const isActive = item.href === '/dashboard/seller'
-              ? router.pathname === '/dashboard/seller'
-              : router.pathname.startsWith(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`${styles.navItem} ${isActive ? styles.active : ''}`}
-                onClick={closeMobile}
-              >
-                <span className={styles.navIcon}>{item.icon}</span>
-                {item.label}
-              </Link>
-            );
-          })}
-          <Link href="/messages" className={styles.navItem} onClick={closeMobile}>
+          <Link
+            href="/dashboard/admin"
+            className={`${styles.navItem} ${router.pathname === '/dashboard/admin' ? styles.active : ''}`}
+            onClick={closeMobile}
+          >
+            <span className={styles.navIcon}>▦</span>
+            Dashboard
+          </Link>
+          <Link
+            href="/messages"
+            className={`${styles.navItem} ${router.pathname === '/messages' ? styles.active : ''}`}
+            onClick={closeMobile}
+          >
             <span className={styles.navMessagesIconWrap}>
               <MessageCircle size={20} strokeWidth={1.5} className={styles.navMessagesLucide} aria-hidden />
               {unreadCount > 0 && (
@@ -83,18 +74,13 @@ export default function SellerLayout({ children }) {
           </Link>
         </nav>
         <div className={styles.sidebarFooter}>
-          <Link
-            href="/dashboard/seller/settings"
-            className={styles.userProfile}
-            aria-label="Open store settings"
-            onClick={closeMobile}
-          >
-            <div className={styles.avatar}>{user.name?.charAt(0)?.toUpperCase() || 'S'}</div>
+          <div className={styles.userProfile} style={{ cursor: 'default' }}>
+            <div className={styles.avatar}>{user.name?.charAt(0)?.toUpperCase() || 'A'}</div>
             <div className={styles.userMeta}>
               <span className={styles.userName}>{user.name}</span>
-              <span className={styles.storeName}>Urban Store • Settings</span>
+              <span className={styles.storeName}>Administrator</span>
             </div>
-          </Link>
+          </div>
           <button type="button" className={styles.logoutBtn} onClick={handleLogout}>
             Log Out
           </button>
@@ -110,8 +96,8 @@ export default function SellerLayout({ children }) {
           >
             <Menu size={22} strokeWidth={1.35} aria-hidden />
           </button>
-          <Link href="/dashboard/seller" className={styles.sellerMobileBrand} onClick={closeMobile}>
-            urbanNxt Seller
+          <Link href="/dashboard/admin" className={styles.sellerMobileBrand} onClick={closeMobile}>
+            urbanNxt Admin
           </Link>
         </header>
         {children}

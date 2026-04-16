@@ -10,7 +10,10 @@ class ProductController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Product::with('category')->where('is_archived', false);
+        $query = Product::with('category')
+            ->where('is_archived', false)
+            ->where('is_active', true)
+            ->where('approval_status', Product::APPROVAL_APPROVED);
 
         if ($request->filled('category')) {
             $query->whereHas('category', function ($q) use ($request) {
@@ -29,7 +32,7 @@ class ProductController extends Controller
                 'image' => $p->image,
                 'sizes' => $p->sizes ?? [],
                 'color' => $p->color,
-                'stock' => $p->stock,
+                'stock' => $p->effectiveAvailableQuantity(),
                 'description' => $p->description,
             ];
         });
@@ -41,6 +44,8 @@ class ProductController extends Controller
     {
         $product = Product::with(['category', 'seller:id,name,email'])
             ->where('is_archived', false)
+            ->where('is_active', true)
+            ->where('approval_status', Product::APPROVAL_APPROVED)
             ->find($id);
         if (!$product) {
             return response()->json(['message' => 'Product not found'], 404);
@@ -55,7 +60,7 @@ class ProductController extends Controller
             'image' => $product->image,
             'sizes' => $product->sizes ?? [],
             'color' => $product->color,
-            'stock' => $product->stock,
+            'stock' => $product->effectiveAvailableQuantity(),
             'description' => $product->description,
             'seller_id' => $product->seller_id,
             'seller' => $product->seller ? ['id' => $product->seller->id, 'name' => $product->seller->name] : null,

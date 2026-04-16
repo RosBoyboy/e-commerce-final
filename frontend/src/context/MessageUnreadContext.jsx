@@ -39,7 +39,7 @@ export function MessageUnreadProvider({ children }) {
       return;
     }
     const role = user.role?.name;
-    if (role !== 'customer' && role !== 'seller') {
+    if (role !== 'customer' && role !== 'seller' && role !== 'admin') {
       setUnreadCount(0);
       return;
     }

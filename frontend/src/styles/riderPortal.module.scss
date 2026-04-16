@@ -571,6 +571,111 @@ $font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   word-break: break-word;
 }
 
+.riderProfileFormCard {
+  background: $card-white;
+  border-radius: $radius;
+  padding: 20px;
+  border: 1px solid $card-border;
+  box-shadow: $card-shadow;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.riderProfileFormLabel {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: $text-muted-main;
+  margin-bottom: 6px;
+}
+
+.riderProfileInput,
+.riderProfileTextarea {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  color: $text-slate;
+  background: #fff;
+  border: 1px solid $card-border;
+  border-radius: 12px;
+  padding: 10px 12px;
+  transition: border-color 0.15s ease;
+
+  &:focus {
+    outline: none;
+    border-color: #38bdf8;
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+  }
+}
+
+.riderProfileTextarea {
+  min-height: 96px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.riderProfileSaveBtn {
+  @include no-border;
+  align-self: flex-start;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+  color: #fff;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+
+  &:hover:not(:disabled) {
+    opacity: 0.95;
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}
+
+.riderTrackStats {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, 1fr);
+  margin-bottom: 24px;
+
+  @media (min-width: 640px) {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.riderTrackStat {
+  background: $card-white;
+  border: 1px solid $card-border;
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: $card-shadow;
+}
+
+.riderTrackStatVal {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: $text-slate;
+  margin: 0 0 4px;
+}
+
+.riderTrackStatLbl {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: $text-muted-main;
+  line-height: 1.35;
+}
+
 /* Task detail slide-over */
 .riderModalBackdrop {
   position: fixed;

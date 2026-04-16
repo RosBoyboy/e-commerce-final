@@ -4,6 +4,12 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_BASE_PATH: '',
   },
+  async redirects() {
+    return [
+      { source: '/dashboard/seller', destination: '/dashboard/admin', permanent: false },
+      { source: '/dashboard/seller/:path*', destination: '/dashboard/admin', permanent: false },
+    ];
+  },
 };
 
 module.exports = nextConfig;

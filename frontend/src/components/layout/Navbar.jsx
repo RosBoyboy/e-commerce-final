@@ -17,7 +17,7 @@ export default function Navbar() {
     if (!user?.role?.name) return '/dashboard/customer';
     const role = user.role.name;
     if (role === 'customer') return '/dashboard/customer';
-    if (role === 'seller') return '/dashboard/seller';
+    if (role === 'seller') return '/dashboard/admin';
     if (role === 'admin') return '/dashboard/admin';
     if (role === 'rider') return '/dashboard/rider';
     return '/dashboard/customer';
@@ -146,8 +146,8 @@ export default function Navbar() {
                   )}
                 </span>
               </Link>
-              {router.pathname === '/messages' && user?.role?.name === 'seller' && (
-                <Link href="/dashboard/seller" aria-label="Back to seller dashboard" className="nav-icon-link">
+              {router.pathname === '/messages' && user?.role?.name === 'admin' && (
+                <Link href="/dashboard/admin" aria-label="Back to admin dashboard" className="nav-icon-link">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="-5 -10 110 135" width="20" height="20" fill="currentColor" aria-hidden>
                     <path d="m15.625 50h-4.1211c-2.6133 0-4.9453-1.6211-5.8594-4.0664-0.91016-2.4414-0.20703-5.1992 1.7656-6.9062l36.449-31.59c3.5234-3.0547 8.7539-3.0547 12.277 0l36.453 31.59c1.9727 1.707 2.6719 4.4648 1.7617 6.9062-0.91016 2.4453-3.2461 4.0664-5.8555 4.0664h-4.1211v34.375c0 5.1797-4.1992 9.375-9.375 9.375h-15.625c-1.7266 0-3.125-1.3984-3.125-3.125v-18.75c0-1.7266-1.4023-3.125-3.125-3.125h-6.25c-1.7266 0-3.125 1.3984-3.125 3.125v18.75c0 1.7266-1.4023 3.125-3.125 3.125h-15.625c-5.1797 0-9.375-4.1953-9.375-9.375z" />
                   </svg>

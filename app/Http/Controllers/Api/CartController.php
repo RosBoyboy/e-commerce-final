@@ -14,7 +14,10 @@ class CartController extends Controller
         $items = CartItem::where('user_id', $request->user()->id)
             ->with(['product.category', 'product.seller:id,name,email'])
             ->get()
-            ->filter(fn (CartItem $row) => $row->product && !$row->product->is_archived);
+            ->filter(function (CartItem $row) {
+                $p = $row->product;
+                return $p && !$p->is_archived && $p->isVisibleOnStorefront();
+            });
 
         return response()->json([
             'items' => $items->map(fn (CartItem $row) => $this->serializeLine($row))->values(),
@@ -30,11 +33,11 @@ class CartController extends Controller
         ]);
 
         $productRow = Product::find($validated['product_id']);
-        if (!$productRow || $productRow->is_archived) {
+        if (!$productRow || !$productRow->isVisibleOnStorefront()) {
             return response()->json(['message' => 'This product is not available.'], 422);
         }
 
-        $stock = (int) ($productRow->stock ?? 0);
+        $stock = $productRow->effectiveAvailableQuantity();
         if ($stock < 1) {
             return response()->json(['message' => 'This product is out of stock.'], 422);
         }
@@ -88,10 +91,10 @@ class CartController extends Controller
 
         $cartItem->load('product');
         $product = $cartItem->product;
-        if (!$product || $product->is_archived) {
+        if (!$product || !$product->isVisibleOnStorefront()) {
             return response()->json(['message' => 'This product is not available.'], 422);
         }
-        $stock = (int) ($product->stock ?? 0);
+        $stock = $product->effectiveAvailableQuantity();
         if ($stock < 1) {
             return response()->json(['message' => 'This product is out of stock.'], 422);
         }
@@ -139,7 +142,7 @@ class CartController extends Controller
             'image'         => $p->image,
             'sizes'         => $p->sizes ?? [],
             'color'         => $p->color,
-            'stock'         => $p->stock,
+            'stock'         => $p->effectiveAvailableQuantity(),
             'description'   => $p->description,
             'seller_id'     => $p->seller_id,
             'seller'        => $p->seller ? ['id' => $p->seller->id, 'name' => $p->seller->name] : null,

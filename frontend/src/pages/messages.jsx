@@ -7,15 +7,20 @@ import {
   fetchConversations,
   fetchConversation,
   sendMessage as sendMessageApi,
-  fetchSellerRiders,
-  assignSellerOrderRider,
+  fetchAdminRiders,
+  assignAdminOrderRider,
 } from '@/services/api';
 import { useMessageUnread } from '@/context/MessageUnreadContext';
 import { useToast } from '@/components/ui/ToastProvider';
-import SellerLayout from '@/components/seller/SellerLayout';
+import AdminMessagesLayout from '@/components/layout/AdminMessagesLayout';
 import CustomerShell from '@/components/layout/CustomerShell';
 import styles from '@/styles/messages.module.scss';
 import dashStyles from '@/styles/dashboard.module.scss';
+import { getEcho, leaveEchoChannel } from '@/lib/echo';
+
+/** Slower polling when Laravel Echo + Pusher is configured (NEXT_PUBLIC_PUSHER_APP_KEY). */
+const LIST_POLL_MS = process.env.NEXT_PUBLIC_PUSHER_APP_KEY ? 12000 : 5000;
+const THREAD_POLL_MS = process.env.NEXT_PUBLIC_PUSHER_APP_KEY ? 12000 : 2200;
 
 const QUICK_REPLIES = [
   { emoji: '🚚', text: 'Order picked up!' },
@@ -41,9 +46,13 @@ function formatChatTime(iso) {
   }
 }
 
-function isMessageFromCurrentUser(message, currentUserId) {
-  if (message == null || currentUserId == null) return false;
-  return Number(message.user_id) === Number(currentUserId);
+/** For admin, outbound chat is stored under the store user id (conversation.seller_id), not the admin id. */
+function isMessageFromViewerSide(message, user, conversation) {
+  if (message == null || user == null) return false;
+  if (user.role?.name === 'admin' && conversation?.seller_id != null) {
+    return Number(message.user_id) === Number(conversation.seller_id);
+  }
+  return Number(message.user_id) === Number(user.id);
 }
 
 function isFetchCanceled(err) {
@@ -93,18 +102,18 @@ export default function Messages() {
     [router.query.conversation],
   );
 
-  const isSeller = user?.role?.name === 'seller';
+  const isAdmin = user?.role?.name === 'admin';
 
   useEffect(() => {
     selectedIdRef.current = selectedId;
   }, [selectedId]);
 
   useEffect(() => {
-    if (!isSeller) return;
-    fetchSellerRiders()
+    if (!isAdmin) return;
+    fetchAdminRiders()
       .then((res) => setFleetRiders(res.data.riders || []))
       .catch(() => setFleetRiders([]));
-  }, [isSeller]);
+  }, [isAdmin]);
 
   useEffect(() => {
     if (!user) {
@@ -119,7 +128,7 @@ export default function Messages() {
     const listPoll = setInterval(() => {
       if (document.visibilityState !== 'visible') return;
       loadConversations({ silent: true }).then(() => refreshUnread());
-    }, 5000);
+    }, LIST_POLL_MS);
     const onVis = () => {
       if (document.visibilityState === 'visible') {
         loadConversations({ silent: true }).then(() => refreshUnread());
@@ -210,7 +219,7 @@ export default function Messages() {
 
     let intervalId = null;
     let cancelled = false;
-    const pollMs = 2200;
+    const pollMs = THREAD_POLL_MS;
     const onVisOrFocus = () => {
       if (cancelled || document.visibilityState !== 'visible' || !selectedIdRef.current) return;
       loadConversation(selectedIdRef.current, { silent: true });
@@ -235,6 +244,29 @@ export default function Messages() {
       conversationFetchAbortRef.current?.abort();
     };
   }, [selectedId, loadConversation]);
+
+  useEffect(() => {
+    if (!selectedId || !user) return undefined;
+    const echo = getEcho();
+    if (!echo) return undefined;
+
+    const channel = echo.private(`conversation.${selectedId}`);
+    channel.listen('.message.sent', (payload) => {
+      const m = payload?.message;
+      if (!m || Number(m.conversation_id) !== Number(selectedId)) return;
+      setMessages((prev) => {
+        if (prev.some((x) => Number(x.id) === Number(m.id))) return prev;
+        return [...prev, m];
+      });
+      setTimeout(() => scrollToBottom(), 50);
+      loadConversations({ silent: true });
+      refreshUnread();
+    });
+
+    return () => {
+      leaveEchoChannel(selectedId);
+    };
+  }, [selectedId, user?.id, loadConversations, refreshUnread]);
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -280,7 +312,7 @@ export default function Messages() {
     const name = rider?.name || 'Rider';
     setAssigningRider(true);
     try {
-      await assignSellerOrderRider(activeOrder.id, riderId);
+      await assignAdminOrderRider(activeOrder.id, riderId);
       await sendMessageApi(selectedId, `Rider ${name} has been assigned to your order!`);
       await loadConversation(selectedId, { silent: true });
       showToast({ message: 'Rider assigned.', type: 'success' });
@@ -302,14 +334,15 @@ export default function Messages() {
     );
   }
 
-  const canMessage = user.role?.name === 'seller' || user.role?.name === 'customer';
+  const canMessage =
+    user.role?.name === 'admin' || user.role?.name === 'customer';
   const isCustomerViewer = user.role?.name === 'customer';
   const showListOnMobile = !selectedId;
   const showThreadOnMobile = !!selectedId;
 
   const threadMain = !canMessage ? (
     <div className={styles.empty}>
-      <p>Messaging is available for sellers and customers only.</p>
+      <p>Messaging is available for customers and administrators only.</p>
     </div>
   ) : (
     <div
@@ -430,7 +463,7 @@ export default function Messages() {
               </div>
             )}
 
-            {isSeller && activeOrder && (
+            {isAdmin && activeOrder && (
               <div className={styles.orderInfoBar} role="region" aria-label="Order info">
                 <div className={styles.orderInfoMain}>
                   <span className={styles.orderInfoLabel}>Order</span>
@@ -481,7 +514,7 @@ export default function Messages() {
               ) : (
                 <>
                   {messages.map((m) => {
-                    const mine = isMessageFromCurrentUser(m, user.id);
+                    const mine = isMessageFromViewerSide(m, user, conversation);
                     return (
                       <div
                         key={m.id}
@@ -529,7 +562,7 @@ export default function Messages() {
               )}
             </div>
 
-            {isSeller && selectedId && (
+            {isAdmin && selectedId && (
               <div className={styles.quickReplies}>
                 {QUICK_REPLIES.map((q) => (
                   <button
@@ -590,9 +623,9 @@ export default function Messages() {
     );
   }
 
-  if (user.role?.name === 'seller') {
+  if (user.role?.name === 'admin') {
     return (
-      <SellerLayout>
+      <AdminMessagesLayout>
         <Head>
           <title>Messages - urbanNxt</title>
           <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -602,7 +635,7 @@ export default function Messages() {
           <p className={styles.pageSubtitle}>Customer conversations, logistics, and quick replies.</p>
           {threadMain}
         </div>
-      </SellerLayout>
+      </AdminMessagesLayout>
     );
   }
 
@@ -614,7 +647,7 @@ export default function Messages() {
       </Head>
       <div className={styles.container}>
         <h1 className={styles.pageTitle}>Messages</h1>
-        <p className={styles.pageSubtitle}>Messaging is available for sellers and customers.</p>
+        <p className={styles.pageSubtitle}>Messaging is available for customers and administrators.</p>
         {threadMain}
       </div>
     </div>

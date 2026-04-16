@@ -4,9 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
-use App\Models\Conversation;
-use App\Models\Message;
 use App\Models\Product;
+use App\Services\OrderChatService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -75,14 +74,15 @@ class OrderController extends Controller
                 if (!$product) {
                     abort(422, 'One or more products no longer exist.');
                 }
-                if ($product->is_archived) {
+                if (!$product->isVisibleOnStorefront()) {
                     abort(422, sprintf('Product "%s" is no longer available.', $product->name ?? 'Item'));
                 }
-                if ((int) $product->stock < $qty) {
+                $available = $product->effectiveAvailableQuantity();
+                if ($available < $qty) {
                     abort(422, sprintf(
                         'Insufficient stock for %s. Available: %d, requested: %d.',
                         $product->name ?? 'selected product',
-                        (int) $product->stock,
+                        $available,
                         $qty
                     ));
                 }
@@ -170,15 +170,12 @@ class OrderController extends Controller
             $sendThankYouChat = ($current === 'shipped')
                 || ($current === 'delivered' && empty($order->received_by));
 
-            $thankYouBody = 'Your UrbanNxt order has arrived! Thank you for choosing us. We hope you love your new look. Feel free to tag us in your photos!';
-
             DB::transaction(function () use (
                 $order,
                 $request,
                 $receivedBy,
                 $customerFeedback,
-                $sendThankYouChat,
-                $thankYouBody
+                $sendThankYouChat
             ) {
                 $order->update([
                     'status' => 'delivered',
@@ -192,72 +189,9 @@ class OrderController extends Controller
                     return;
                 }
 
-                $order->loadMissing(['items.product']);
-
-                $customer = $order->customer;
-                $sellerId = null;
-                $product = null;
-                foreach ($order->items as $item) {
-                    $p = $item->product;
-                    if (!$p && $item->product_id) {
-                        $p = Product::query()
-                            ->select(['id', 'seller_id', 'name', 'slug', 'image'])
-                            ->find($item->product_id);
-                    }
-                    if ($p && $p->seller_id) {
-                        $sellerId = (int) $p->seller_id;
-                        $product = $p;
-                        break;
-                    }
-                }
-
-                if (!$customer || !$sellerId) {
-                    return;
-                }
-
-                $productId = $product && $product->id ? (int) $product->id : null;
-
-                // Prefer the thread for this product so the thank-you appears in the same chat as
-                // "Message seller" on that product. firstOrCreate(seller,customer) alone can attach
-                // to a different row when multiple conversations exist for the same pair.
-                $conversation = null;
-                if ($productId) {
-                    $conversation = Conversation::query()
-                        ->where('seller_id', $sellerId)
-                        ->where('customer_id', $customer->id)
-                        ->where('product_id', $productId)
-                        ->first();
-                }
-                if (!$conversation) {
-                    $conversation = Conversation::query()
-                        ->where('seller_id', $sellerId)
-                        ->where('customer_id', $customer->id)
-                        ->orderByDesc('updated_at')
-                        ->first();
-                }
-                if (!$conversation) {
-                    $conversation = Conversation::create([
-                        'seller_id' => $sellerId,
-                        'customer_id' => $customer->id,
-                        'product_id' => $productId,
-                    ]);
-                } elseif ($productId && $conversation->product_id === null) {
-                    $conversation->update(['product_id' => $productId]);
-                }
-
-                $alreadySent = $conversation->messages()
-                    ->where('user_id', $sellerId)
-                    ->where('body', $thankYouBody)
-                    ->exists();
-
-                if (!$alreadySent) {
-                    Message::create([
-                        'conversation_id' => $conversation->id,
-                        'user_id' => $sellerId,
-                        'body' => $thankYouBody,
-                    ]);
-                    $conversation->touch();
-                }
+                $order->loadMissing(['items.product', 'customer']);
+                $body = OrderChatService::bodyCustomerReceiptThankYou($order);
+                OrderChatService::sendSellerAutomatedMessage($order, $body, 'received');
             });
 
             return response()->json(['message' => 'Order receipt confirmed.', 'order' => $order->fresh('items.product')], 200);

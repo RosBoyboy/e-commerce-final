@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Conversation;
 use Illuminate\Support\Facades\Broadcast;
 
 /*
@@ -15,4 +16,18 @@ use Illuminate\Support\Facades\Broadcast;
 
 Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
     return (int) $user->id === (int) $id;
+});
+
+Broadcast::channel('conversation.{conversationId}', function ($user, $conversationId) {
+    $user->loadMissing('role');
+    $conversation = Conversation::find($conversationId);
+    if (!$conversation) {
+        return false;
+    }
+    if ($user->hasRole('admin')) {
+        return true;
+    }
+
+    return (int) $conversation->seller_id === (int) $user->id
+        || (int) $conversation->customer_id === (int) $user->id;
 });

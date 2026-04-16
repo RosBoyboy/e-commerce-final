@@ -82,24 +82,15 @@ export const fetchCustomerOrders = () => api.get('/orders');
 export const updateOrderStatus = (orderId, status, extra = {}) =>
   api.patch(`/orders/${orderId}/status`, { status, ...extra });
 
-// Seller products
-export const fetchSellerProducts = () => api.get('/seller/products');
-export const createSellerProduct = (payload) => api.post('/seller/products', payload);
-export const updateSellerProduct = (id, payload) => api.put(`/seller/products/${id}`, payload);
-export const deleteSellerProduct = (id) => api.delete(`/seller/products/${id}`);
-export const fetchSellerOrders = () => api.get('/seller/orders');
-export const updateSellerOrderStatus = (orderId, status) =>
-  api.patch(`/seller/orders/${orderId}/status`, { status });
-export const fetchSellerRiders = () => api.get('/seller/riders');
-export const assignSellerOrderRider = (orderId, riderId) =>
-  api.patch(`/seller/orders/${orderId}/assign-rider`, { rider_id: riderId });
-
 // Rider (fleet)
 export const fetchRiderOrders = () => api.get('/rider/orders');
 export const fetchRiderStats = () => api.get('/rider/stats');
 export const fetchRiderProfile = () => api.get('/rider/profile');
+export const updateRiderProfile = (payload) => api.patch('/rider/profile', payload);
 export const riderMarkDelivered = (orderId) =>
   api.patch(`/rider/orders/${orderId}/deliver`);
+export const riderMarkPickedUp = (orderId) =>
+  api.patch(`/rider/orders/${orderId}/pickup`);
 
 // Messaging
 export const fetchConversationsUnreadCount = () => api.get('/conversations/unread-count');
@@ -125,6 +116,7 @@ export const permanentDeleteAdminUsersBatch = (ids) =>
   api.post('/admin/users/permanent-batch', { ids });
 
 export const fetchAdminOrders = () => api.get('/admin/orders');
+export const fetchAdminInventoryReport = () => api.get('/admin/inventory-report');
 export const updateAdminOrderStatus = (orderId, status) =>
   api.patch(`/admin/orders/${orderId}/status`, { status });
 export const assignAdminOrderRider = (orderId, riderId) =>
@@ -139,6 +131,8 @@ export const deleteAdminProduct = (id) => api.delete(`/admin/products/${id}`);
 export const fetchAdminArchivedProducts = () => api.get('/admin/products/archived');
 export const archiveAdminProduct = (id) => api.patch(`/admin/products/${id}/archive`);
 export const restoreAdminProduct = (id) => api.patch(`/admin/products/${id}/restore`);
+export const approveAdminProduct = (id) => api.patch(`/admin/products/${id}/approve`);
+export const rejectAdminProduct = (id) => api.patch(`/admin/products/${id}/reject`);
 export const archiveAdminProductsBatch = (ids) =>
   api.post('/admin/products/archive-batch', { ids });
 export const permanentDeleteAdminProductsBatch = (ids) =>

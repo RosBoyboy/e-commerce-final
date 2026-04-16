@@ -8,15 +8,15 @@ export default function Layout({ children }) {
   const router = useRouter();
   const { user } = useAuth();
   const isDashboard = router.pathname.startsWith('/dashboard');
-  const isSellerDashboard = router.pathname.startsWith('/dashboard/seller');
   const isAdminDashboard = router.pathname === '/dashboard/admin';
   const isCustomerDashboard = router.pathname === '/dashboard/customer';
   const isRiderDashboard = router.pathname.startsWith('/dashboard/rider');
   const isCustomerMessages = router.pathname === '/messages' && user?.role?.name === 'customer';
+  const isAdminMessages = router.pathname === '/messages' && user?.role?.name === 'admin';
   const hideGlobalNav =
-    isSellerDashboard || isAdminDashboard || isCustomerDashboard || isRiderDashboard || isCustomerMessages;
+    isAdminDashboard || isCustomerDashboard || isRiderDashboard || isCustomerMessages || isAdminMessages;
   const mainFullBleed =
-    isSellerDashboard || isAdminDashboard || isCustomerDashboard || isRiderDashboard || isCustomerMessages;
+    isAdminDashboard || isCustomerDashboard || isRiderDashboard || isCustomerMessages || isAdminMessages;
 
   return (
     <>

@@ -12,12 +12,14 @@ import {
   fetchAdminSettings,
   updateAdminSettings,
   updateAdminOrderStatus,
-  deleteAdminUser,
-  deleteAdminProduct,
   deleteAdminCategory,
   createAdminCategory,
+  createAdminProduct,
+  approveAdminProduct,
+  rejectAdminProduct,
   fetchAdminArchivedProducts,
   fetchAdminArchivedUsers,
+  fetchAdminInventoryReport,
   fetchAdminRiders,
   assignAdminOrderRider,
   updateAdminRider,
@@ -27,8 +29,6 @@ import {
   restoreAdminUser,
   archiveAdminProductsBatch,
   archiveAdminUsersBatch,
-  permanentDeleteAdminProductsBatch,
-  permanentDeleteAdminUsersBatch,
 } from '@/services/api';
 import AdminShell from '@/components/layout/AdminShell';
 import { productImageUrl } from '@/utils/image';
@@ -49,22 +49,81 @@ import {
   Archive,
   BadgeCheck,
   Bike,
+  MapPin,
   PackageSearch,
+  Plus,
   RefreshCw,
   RotateCcw,
   Search,
-  Trash2,
   TrendingUp,
   Truck,
   Users,
   X,
 } from 'lucide-react';
 import styles from '@/styles/dashboard.module.scss';
+import { PRODUCT_SIZE_OPTIONS } from '@/constants/commerce';
 
-const ADMIN_TAB_KEYS = ['overview', 'orders', 'products', 'categories', 'customers', 'analytics', 'settings'];
+function formatAdminSizesSummary(selected) {
+  if (!selected || selected.length === 0) return 'Select sizes…';
+  if (selected.length >= PRODUCT_SIZE_OPTIONS.length) return 'All sizes selected';
+  const joined = selected.join(', ');
+  if (joined.length > 52) return `${joined.slice(0, 50)}…`;
+  return joined;
+}
+
+function formatAdminDateTime(iso) {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' });
+  } catch {
+    return '';
+  }
+}
+
+/** User-facing order status (API still uses `delivered`). */
+function formatOrderStatusLabel(statusRaw) {
+  const s = (statusRaw || '').toLowerCase();
+  if (s === 'delivered') return 'Completed';
+  return statusRaw || '—';
+}
+
+/** Rider handoff row for Track order tab */
+function getTrackPickupDisplay(order) {
+  const s = (order.status || '').toLowerCase();
+  const hasRider = !!(order.rider_id ?? order.rider?.id);
+  const picked = order.picked_up_at;
+  if (s === 'delivered') {
+    return {
+      title: 'Completed',
+      detail: picked ? `Picked up ${formatAdminDateTime(picked)}` : 'Order finished',
+      tone: 'done',
+    };
+  }
+  if (s === 'shipped') {
+    if (!hasRider) {
+      return { title: 'Awaiting rider', detail: 'Assign a delivery partner', tone: 'warn' };
+    }
+    if (picked) {
+      return {
+        title: 'Picked up',
+        detail: formatAdminDateTime(picked),
+        tone: 'ok',
+      };
+    }
+    return {
+      title: 'Rider assigned',
+      detail: 'Waiting for rider to confirm pickup',
+      tone: 'pending',
+    };
+  }
+  return { title: '—', detail: '', tone: 'muted' };
+}
+
+const ADMIN_TAB_KEYS = ['overview', 'orders', 'products', 'inventory', 'categories', 'customers', 'analytics', 'settings'];
 
 const ACTIVE_ORDER_STATUSES = ['pending', 'confirmed', 'processing', 'shipped'];
 const COMPLETED_ORDER_STATUSES = ['delivered', 'cancelled'];
+const TRACK_ORDER_STATUSES = ['shipped', 'delivered'];
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -88,6 +147,13 @@ export default function AdminDashboard() {
   const [activeOrdersStatusFilter, setActiveOrdersStatusFilter] = useState(null);
   const [ordersSearch, setOrdersSearch] = useState('');
   const [productsSearch, setProductsSearch] = useState('');
+  /** @type {'all' | 'pending' | 'live' | 'rejected'} */
+  const [productsScopeTab, setProductsScopeTab] = useState('all');
+  const [productApprovalLoadingId, setProductApprovalLoadingId] = useState(null);
+  const [inventoryRows, setInventoryRows] = useState([]);
+  const [inventoryTotals, setInventoryTotals] = useState({ total_units_sold: 0, total_sales_amount: 0 });
+  const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [inventorySearch, setInventorySearch] = useState('');
   const [customersSearch, setCustomersSearch] = useState('');
   const [categoriesSearch, setCategoriesSearch] = useState('');
   const [overviewOrdersSearch, setOverviewOrdersSearch] = useState('');
@@ -104,6 +170,19 @@ export default function AdminDashboard() {
   const [confirmDialog, setConfirmDialog] = useState(null);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [categoryCreating, setCategoryCreating] = useState(false);
+  const [addProductOpen, setAddProductOpen] = useState(false);
+  const [productCreating, setProductCreating] = useState(false);
+  const [newProduct, setNewProduct] = useState({
+    name: '',
+    description: '',
+    price: '',
+    stock: '',
+    category_id: '',
+    image: '',
+    sizes: [],
+    sales_cap_quantity: '',
+    sales_cap_period: '',
+  });
 
   const [settingsTab, setSettingsTab] = useState('general'); // general | appearance | notifications | riders | archive
   const [fleetRiders, setFleetRiders] = useState([]);
@@ -163,6 +242,30 @@ export default function AdminDashboard() {
   }, [initialSettings]);
 
   useEffect(() => {
+    if (activeTab !== 'inventory' || !user || user.role?.name !== 'admin') return undefined;
+    let cancelled = false;
+    setInventoryLoading(true);
+    fetchAdminInventoryReport()
+      .then((res) => {
+        if (cancelled) return;
+        setInventoryRows(res.data?.products || []);
+        setInventoryTotals(res.data?.totals || { total_units_sold: 0, total_sales_amount: 0 });
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setInventoryRows([]);
+          setInventoryTotals({ total_units_sold: 0, total_sales_amount: 0 });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setInventoryLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, user]);
+
+  useEffect(() => {
     if (activeTab !== 'settings' || settingsTab !== 'archive' || !user || user.role?.name !== 'admin') {
       return undefined;
     }
@@ -210,6 +313,7 @@ export default function AdminDashboard() {
           name: r.name || '',
           phone: r.phone || '',
           vehicle_plate: r.vehicle_plate || '',
+          address: r.address || '',
         };
       });
       setRiderDrafts(drafts);
@@ -280,6 +384,7 @@ export default function AdminDashboard() {
         name: d.name,
         phone: d.phone,
         vehicle_plate: d.vehicle_plate,
+        address: d.address,
       });
       const ridersRef = await fetchAdminRiders();
       setFleetRiders(ridersRef.data.riders || []);
@@ -288,6 +393,40 @@ export default function AdminDashboard() {
       showToast({ message: e.response?.data?.message || e.message || 'Failed to save rider.', type: 'error' });
     } finally {
       setRiderSavingId(null);
+    }
+  };
+
+  const handleApproveProduct = async (productId) => {
+    setProductApprovalLoadingId(productId);
+    try {
+      await approveAdminProduct(productId);
+      const refreshed = await fetchAdminProducts();
+      setProducts(refreshed.data.products || []);
+      showToast({ message: 'Product published to the store.', type: 'success' });
+    } catch (e) {
+      showToast({
+        message: e.response?.data?.message || e.message || 'Could not publish product.',
+        type: 'error',
+      });
+    } finally {
+      setProductApprovalLoadingId(null);
+    }
+  };
+
+  const handleRejectProduct = async (productId) => {
+    setProductApprovalLoadingId(productId);
+    try {
+      await rejectAdminProduct(productId);
+      const refreshed = await fetchAdminProducts();
+      setProducts(refreshed.data.products || []);
+      showToast({ message: 'Product rejected.', type: 'success' });
+    } catch (e) {
+      showToast({
+        message: e.response?.data?.message || e.message || 'Could not reject product.',
+        type: 'error',
+      });
+    } finally {
+      setProductApprovalLoadingId(null);
     }
   };
 
@@ -312,24 +451,6 @@ export default function AdminDashboard() {
         showToast({ message: 'Customer archived.', type: 'success' });
         const ur = await fetchAdminArchivedUsers();
         setArchivedUsers(ur.data?.users || []);
-      } else if (d.mode === 'delete-product') {
-        await deleteAdminProduct(d.id);
-        const refreshed = await fetchAdminProducts();
-        setProducts(refreshed.data.products || []);
-        setSelectedProductIds((prev) => prev.filter((x) => x !== d.id));
-        const pr = await fetchAdminArchivedProducts();
-        setArchivedProducts(pr.data?.products || []);
-        setSelectedArchivedProductIds((prev) => prev.filter((x) => x !== d.id));
-        showToast({ message: 'Product deleted.', type: 'success' });
-      } else if (d.mode === 'delete-user') {
-        await deleteAdminUser(d.id);
-        const refreshed = await fetchAdminUsers();
-        setUsers(refreshed.data.users || []);
-        setSelectedCustomerIds((prev) => prev.filter((x) => x !== d.id));
-        const ur = await fetchAdminArchivedUsers();
-        setArchivedUsers(ur.data?.users || []);
-        setSelectedArchivedCustomerIds((prev) => prev.filter((x) => x !== d.id));
-        showToast({ message: 'Customer deleted.', type: 'success' });
       } else if (d.mode === 'batch-archive-products') {
         await archiveAdminProductsBatch(d.ids);
         const refreshed = await fetchAdminProducts();
@@ -375,10 +496,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const requestDeleteProduct = (id) => {
-    setConfirmDialog({ mode: 'delete-product', id });
-  };
-
   const handleRestoreUser = async (id) => {
     try {
       await restoreAdminUser(id);
@@ -389,38 +506,6 @@ export default function AdminDashboard() {
       showToast({ message: 'Customer restored.', type: 'success' });
     } catch (e) {
       alert(e.response?.data?.message || e.message || 'Failed to restore customer.');
-    }
-  };
-
-  const requestDeleteUser = (id) => {
-    setConfirmDialog({ mode: 'delete-user', id });
-  };
-
-  const handleBatchPermanentDeleteArchivedProducts = async () => {
-    if (selectedArchivedProductIds.length === 0) return;
-    if (!confirm(`Permanently delete ${selectedArchivedProductIds.length} archived product(s)?`)) return;
-    try {
-      await permanentDeleteAdminProductsBatch(selectedArchivedProductIds);
-      setSelectedArchivedProductIds([]);
-      const pr = await fetchAdminArchivedProducts();
-      setArchivedProducts(pr.data?.products || []);
-      showToast({ message: 'Products permanently deleted.', type: 'success' });
-    } catch (e) {
-      alert(e.response?.data?.message || e.message || 'Failed to delete products.');
-    }
-  };
-
-  const handleBatchPermanentDeleteArchivedUsers = async () => {
-    if (selectedArchivedCustomerIds.length === 0) return;
-    if (!confirm(`Permanently delete ${selectedArchivedCustomerIds.length} archived customer(s)?`)) return;
-    try {
-      await permanentDeleteAdminUsersBatch(selectedArchivedCustomerIds);
-      setSelectedArchivedCustomerIds([]);
-      const ur = await fetchAdminArchivedUsers();
-      setArchivedUsers(ur.data?.users || []);
-      showToast({ message: 'Customers permanently deleted.', type: 'success' });
-    } catch (e) {
-      alert(e.response?.data?.message || e.message || 'Failed to delete customers.');
     }
   };
 
@@ -478,6 +563,87 @@ export default function AdminDashboard() {
       alert(err.response?.data?.message || err.message || 'Failed to create category.');
     } finally {
       setCategoryCreating(false);
+    }
+  };
+
+  const resetNewProductForm = () => setNewProduct({
+    name: '',
+    description: '',
+    price: '',
+    stock: '',
+    category_id: '',
+    image: '',
+    sizes: [],
+    sales_cap_quantity: '',
+    sales_cap_period: '',
+  });
+
+  const handleCreateProduct = async (e) => {
+    e.preventDefault();
+    const name = newProduct.name.trim();
+    const categoryId = parseInt(String(newProduct.category_id), 10);
+    const price = parseFloat(String(newProduct.price));
+    const stock = parseInt(String(newProduct.stock), 10);
+    if (!name || !categoryId) {
+      showToast({ message: 'Name and category are required.', type: 'error' });
+      return;
+    }
+    if (Number.isNaN(price) || price < 0) {
+      showToast({ message: 'Enter a valid price.', type: 'error' });
+      return;
+    }
+    if (Number.isNaN(stock) || stock < 0) {
+      showToast({ message: 'Enter a valid stock quantity.', type: 'error' });
+      return;
+    }
+    const payload = {
+      name,
+      description: newProduct.description.trim() || undefined,
+      price,
+      stock,
+      category_id: categoryId,
+    };
+    const img = newProduct.image.trim();
+    if (img) payload.image = img;
+    if (Array.isArray(newProduct.sizes) && newProduct.sizes.length > 0) {
+      payload.sizes = newProduct.sizes;
+    }
+    const capQtyRaw = String(newProduct.sales_cap_quantity || '').trim();
+    const capPeriod = newProduct.sales_cap_period;
+    if (capQtyRaw) {
+      const capQty = parseInt(capQtyRaw, 10);
+      if (Number.isNaN(capQty) || capQty < 1) {
+        showToast({ message: 'Enter a valid sales cap (at least 1) or clear it.', type: 'error' });
+        return;
+      }
+      if (capPeriod !== 'month' && capPeriod !== 'year') {
+        showToast({ message: 'Choose this month or this year for the sales cap.', type: 'error' });
+        return;
+      }
+      payload.sales_cap_quantity = capQty;
+      payload.sales_cap_period = capPeriod;
+    }
+    setProductCreating(true);
+    try {
+      const res = await createAdminProduct(payload);
+      setAddProductOpen(false);
+      resetNewProductForm();
+      const refreshed = await fetchAdminProducts();
+      setProducts(refreshed.data.products || []);
+      showToast({
+        message: res.data?.message || 'Product submitted for approval.',
+        type: 'success',
+      });
+    } catch (err) {
+      const msg = err.response?.data?.message
+        || (typeof err.response?.data?.errors === 'object'
+          ? Object.values(err.response.data.errors).flat().join(' ')
+          : null)
+        || err.message
+        || 'Failed to create product.';
+      showToast({ message: msg, type: 'error' });
+    } finally {
+      setProductCreating(false);
     }
   };
 
@@ -586,10 +752,15 @@ export default function AdminDashboard() {
     if (!q) return orders || [];
     return (orders || []).filter((o) => {
       const customer = `${o.customer?.name || ''} ${o.customer?.email || ''}`.toLowerCase();
+      const st = (o.status || '').toLowerCase();
+      const statusMatches =
+        st.includes(q)
+        || (q.includes('completed') && st === 'delivered')
+        || (q.includes('delivered') && st === 'delivered');
       return (
         String(o.order_number || o.id || '').toLowerCase().includes(q)
         || customer.includes(q)
-        || String(o.status || '').toLowerCase().includes(q)
+        || statusMatches
       );
     });
   }, [orders, overviewOrdersSearch]);
@@ -598,10 +769,17 @@ export default function AdminDashboard() {
     const q = qRaw.trim().toLowerCase();
     if (!q) return true;
     const customer = `${o.customer?.name || ''} ${o.customer?.email || ''}`.toLowerCase();
+    const rider = `${o.rider?.user?.name || ''} ${o.rider?.user?.email || ''}`.toLowerCase();
+    const st = (o.status || '').toLowerCase();
+    const statusMatches =
+      st.includes(q)
+      || (q.includes('completed') && st === 'delivered')
+      || (q.includes('delivered') && st === 'delivered');
     return (
       String(o.order_number || o.id || '').toLowerCase().includes(q)
       || customer.includes(q)
-      || String(o.status || '').toLowerCase().includes(q)
+      || rider.includes(q)
+      || statusMatches
     );
   };
 
@@ -624,6 +802,22 @@ export default function AdminDashboard() {
     });
   }, [orders, ordersSearch]);
 
+  const trackOrdersList = useMemo(() => {
+    const q = ordersSearch;
+    return (orders || [])
+      .filter((o) => {
+        const s = (o.status || '').toLowerCase();
+        if (!TRACK_ORDER_STATUSES.includes(s)) return false;
+        return orderMatchesSearch(o, q);
+      })
+      .sort((a, b) => {
+        const sa = (a.status || '').toLowerCase();
+        const sb = (b.status || '').toLowerCase();
+        if (sa !== sb) return sa === 'shipped' ? -1 : 1;
+        return new Date(b.updated_at || 0) - new Date(a.updated_at || 0);
+      });
+  }, [orders, ordersSearch]);
+
   const activeOrderStatusCounts = useMemo(() => {
     const c = { pending: 0, confirmed: 0, processing: 0, shipped: 0 };
     (orders || []).forEach((o) => {
@@ -642,13 +836,30 @@ export default function AdminDashboard() {
 
   const filteredProducts = useMemo(() => {
     const q = productsSearch.trim().toLowerCase();
-    if (!q) return products || [];
-    return (products || []).filter((p) => (
+    let list = products || [];
+    if (productsScopeTab === 'pending') {
+      list = list.filter((p) => (p.approval_status || 'approved') === 'pending');
+    } else if (productsScopeTab === 'live') {
+      list = list.filter((p) => (p.approval_status || 'approved') === 'approved');
+    } else if (productsScopeTab === 'rejected') {
+      list = list.filter((p) => (p.approval_status || '') === 'rejected');
+    }
+    if (!q) return list;
+    return list.filter((p) => (
       String(p.name || '').toLowerCase().includes(q)
       || String(p.category?.name || '').toLowerCase().includes(q)
       || String(p.seller?.name || '').toLowerCase().includes(q)
     ));
-  }, [products, productsSearch]);
+  }, [products, productsSearch, productsScopeTab]);
+
+  const filteredInventoryRows = useMemo(() => {
+    const q = inventorySearch.trim().toLowerCase();
+    if (!q) return inventoryRows || [];
+    return (inventoryRows || []).filter((row) => (
+      String(row.name || '').toLowerCase().includes(q)
+      || String(row.category || '').toLowerCase().includes(q)
+    ));
+  }, [inventoryRows, inventorySearch]);
 
   const filteredCustomerUsers = useMemo(() => {
     const q = customersSearch.trim().toLowerCase();
@@ -729,10 +940,6 @@ export default function AdminDashboard() {
         return 'Are you sure you really want to archive this product?';
       case 'archive-user':
         return 'Are you sure you really want to archive this user?';
-      case 'delete-product':
-        return 'Are you sure you want to delete this product?';
-      case 'delete-user':
-        return 'Are you sure you want to delete this user?';
       case 'batch-archive-products':
         return `Are you sure you really want to archive ${ids?.length ?? 0} selected product(s)?`;
       case 'batch-archive-customers':
@@ -765,6 +972,8 @@ export default function AdminDashboard() {
                 ? 'Orders'
                 : activeTab === 'products'
                 ? 'Products'
+                : activeTab === 'inventory'
+                ? 'Inventory'
                 : activeTab === 'categories'
                 ? 'Categories'
                 : activeTab === 'customers'
@@ -776,11 +985,12 @@ export default function AdminDashboard() {
             <p className={styles.subtitle}>
               {activeTab === 'overview' && "Welcome back, Admin. Here's what's happening today."}
               {activeTab === 'orders' && 'View and manage all customer orders in one place.'}
-              {activeTab === 'products' && 'Manage your catalog, stock, and categories.'}
+              {activeTab === 'products' && 'Add products (they stay pending until you publish), manage stock, and categories.'}
+              {activeTab === 'inventory' && 'Stock on hand, units sold, and revenue per product (non-cancelled orders).'}
               {activeTab === 'categories' && 'Manage categories for your storefront.'}
               {activeTab === 'customers' && 'See customer details, status, and value.'}
               {activeTab === 'analytics' && 'Overview of your store performance.'}
-              {activeTab === 'settings' && settingsTab === 'archive' && 'Archive & Recovery: restore archived products and customers, or remove them permanently.'}
+              {activeTab === 'settings' && settingsTab === 'archive' && 'Archive & recovery: restore archived products and customers when needed.'}
               {activeTab === 'settings' && settingsTab === 'riders' && 'Manage built-in delivery riders: names, phone, and plate numbers.'}
               {activeTab === 'settings' && settingsTab !== 'archive' && settingsTab !== 'riders' && 'Manage store preferences and system settings.'}
             </p>
@@ -918,7 +1128,11 @@ export default function AdminDashboard() {
                               <tr key={o.id}>
                                 <td>#{o.order_number || o.id}</td>
                                 <td>{o.customer?.name || '-'}</td>
-                                <td><span className={`${styles.adminStatusPill} ${statusPillClass(o.status)}`}>{o.status}</span></td>
+                                <td>
+                                  <span className={`${styles.adminStatusPill} ${statusPillClass(o.status)}`}>
+                                    {formatOrderStatusLabel(o.status)}
+                                  </span>
+                                </td>
                                 <td>₱{Number(o.total_amount || 0).toFixed(2)}</td>
                                 <td>{o.created_at ? new Date(o.created_at).toLocaleDateString() : ''}</td>
                               </tr>
@@ -957,6 +1171,18 @@ export default function AdminDashboard() {
                     >
                       Completed / History
                     </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={orderSubTab === 'track'}
+                      className={`${styles.adminOrderTabBtn} ${orderSubTab === 'track' ? styles.adminOrderTabBtnActive : ''}`}
+                      onClick={() => {
+                        setOrderSubTab('track');
+                        setActiveOrdersStatusFilter(null);
+                      }}
+                    >
+                      Track order
+                    </button>
                     <span
                       className={styles.adminOrderTabSlider}
                       data-tab={orderSubTab}
@@ -976,6 +1202,81 @@ export default function AdminDashboard() {
                   </div>
                   {dataLoading ? (
                     <p style={{ marginTop: 12 }}>Loading orders…</p>
+                  ) : orderSubTab === 'track' ? (
+                    <>
+                      <p style={{ margin: '0 0 16px', fontSize: 14, color: '#64748b', maxWidth: 640 }}>
+                        <MapPin size={16} strokeWidth={2} style={{ verticalAlign: '-0.2em', marginRight: 6 }} aria-hidden />
+                        Shipped and completed orders only. <strong style={{ color: '#334155' }}>Picked up</strong> shows when
+                        the assigned rider confirms they collected the parcel.
+                      </p>
+                      {trackOrdersList.length === 0 ? (
+                        <p className={styles.emptyState}>No orders in rider tracking (nothing shipped or completed yet).</p>
+                      ) : (
+                        <div className={styles.usersTable}>
+                          <table>
+                            <thead>
+                              <tr>
+                                <th>Order</th>
+                                <th>Customer</th>
+                                <th>Status</th>
+                                <th>Rider</th>
+                                <th>Pickup / handoff</th>
+                                <th>Total</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {trackOrdersList.map((o) => {
+                                const tp = getTrackPickupDisplay(o);
+                                const toneClass =
+                                  tp.tone === 'ok'
+                                    ? styles.adminTrackPickupTitleOk
+                                    : tp.tone === 'warn'
+                                      ? styles.adminTrackPickupTitleWarn
+                                      : tp.tone === 'done'
+                                        ? styles.adminTrackPickupTitleDone
+                                        : tp.tone === 'pending'
+                                          ? styles.adminTrackPickupTitlePending
+                                          : styles.adminTrackPickupTitleMuted;
+                                return (
+                                  <tr
+                                    key={o.id}
+                                    onClick={() => setSelectedOrder(o)}
+                                    style={{ cursor: 'pointer' }}
+                                  >
+                                    <td>#{o.order_number || o.id}</td>
+                                    <td>{o.customer?.name || '-'}</td>
+                                    <td>
+                                      <span className={`${styles.adminStatusPill} ${statusPillClass(o.status)}`}>
+                                        {formatOrderStatusLabel(o.status)}
+                                      </span>
+                                    </td>
+                                    <td>
+                                      {o.rider?.user?.name ? (
+                                        <span className={styles.adminOrderRiderName}>
+                                          <Bike size={16} strokeWidth={2} aria-hidden />
+                                          {o.rider.user.name}
+                                        </span>
+                                      ) : (
+                                        '—'
+                                      )}
+                                    </td>
+                                    <td>
+                                      <div className={styles.adminTrackPickupCell}>
+                                        <span className={`${styles.adminTrackPickupTitle} ${toneClass}`}>{tp.title}</span>
+                                        {tp.detail ? (
+                                          <span className={styles.adminTrackPickupDetail}>{tp.detail}</span>
+                                        ) : null}
+                                      </div>
+                                    </td>
+                                    <td>₱{Number(o.total_amount || 0).toFixed(2)}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </>
                   ) : orderSubTab === 'active' ? (
                     <>
                       <div className={styles.adminOrderStatGrid} role="group" aria-label="Active order counts by status">
@@ -1068,7 +1369,11 @@ export default function AdminDashboard() {
                                     <td style={{ maxWidth: 220, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                       {o.shipping_address || '-'}
                                     </td>
-                                    <td><span className={`${styles.adminStatusPill} ${statusPillClass(o.status)}`}>{o.status}</span></td>
+                                    <td>
+                                      <span className={`${styles.adminStatusPill} ${statusPillClass(o.status)}`}>
+                                        {formatOrderStatusLabel(o.status)}
+                                      </span>
+                                    </td>
                                     <td onClick={(e) => e.stopPropagation()}>
                                       {st === 'shipped' ? (
                                         <div className={styles.adminOrderRiderCell}>
@@ -1188,7 +1493,11 @@ export default function AdminDashboard() {
                               <td style={{ maxWidth: 220, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {o.shipping_address || '-'}
                               </td>
-                              <td><span className={`${styles.adminStatusPill} ${statusPillClass(o.status)}`}>{o.status}</span></td>
+                              <td>
+                                <span className={`${styles.adminStatusPill} ${statusPillClass(o.status)}`}>
+                                  {formatOrderStatusLabel(o.status)}
+                                </span>
+                              </td>
                               <td onClick={(e) => e.stopPropagation()}>
                                 {o.rider?.user?.name ? (
                                   <span className={styles.adminOrderRiderName}>
@@ -1241,7 +1550,7 @@ export default function AdminDashboard() {
                       <div style={{ fontWeight: 700, color: '#0f172a' }}>Status</div>
                       <div style={{ marginTop: 2 }}>
                         <span className={`${styles.adminStatusPill} ${statusPillClass(selectedOrder.status)}`}>
-                          {selectedOrder.status}
+                          {formatOrderStatusLabel(selectedOrder.status)}
                         </span>
                       </div>
                       {selectedOrder.received_by && (
@@ -1272,7 +1581,47 @@ export default function AdminDashboard() {
                         <div className={styles.adminOrderRiderDetailMeta}>
                           {selectedOrder.rider.phone || '—'} · Plate {selectedOrder.rider.vehicle_plate || '—'}
                         </div>
+                        {selectedOrder.rider.address ? (
+                          <div style={{ marginTop: 8, fontSize: 13, color: '#475569', lineHeight: 1.45 }}>
+                            {selectedOrder.rider.address}
+                          </div>
+                        ) : null}
                       </div>
+                    </div>
+                  )}
+
+                  {['shipped', 'delivered'].includes((selectedOrder.status || '').toLowerCase()) && (
+                    <div
+                      style={{
+                        marginTop: 12,
+                        padding: 12,
+                        borderRadius: 12,
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 800,
+                          letterSpacing: '0.06em',
+                          textTransform: 'uppercase',
+                          color: '#64748b',
+                        }}
+                      >
+                        Rider pickup
+                      </div>
+                      {(() => {
+                        const tp = getTrackPickupDisplay(selectedOrder);
+                        return (
+                          <>
+                            <div style={{ marginTop: 6, fontSize: 14, color: '#0f172a', fontWeight: 600 }}>{tp.title}</div>
+                            {tp.detail ? (
+                              <div style={{ marginTop: 4, fontSize: 13, color: '#64748b' }}>{tp.detail}</div>
+                            ) : null}
+                          </>
+                        );
+                      })()}
                     </div>
                   )}
 
@@ -1346,12 +1695,238 @@ export default function AdminDashboard() {
               </div>
             )}
 
+            {addProductOpen && (
+              <div
+                className={styles.modalOverlay}
+                onClick={() => {
+                  if (productCreating) return;
+                  setAddProductOpen(false);
+                  resetNewProductForm();
+                }}
+              >
+                <div
+                  className={styles.modal}
+                  style={{ maxWidth: 520 }}
+                  onClick={(e) => e.stopPropagation()}
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="add-product-title"
+                >
+                  <h2 id="add-product-title" style={{ marginTop: 0 }}>Add product</h2>
+                  <p style={{ fontSize: 14, color: '#64748b', lineHeight: 1.5, marginBottom: 18 }}>
+                    New products are saved as <strong>pending</strong> and are not visible in the shop until you publish them from the product list.
+                  </p>
+                  <form className={styles.adminAddProductForm} onSubmit={handleCreateProduct}>
+                    <div className={styles.formGroup}>
+                      <label htmlFor="np-name" className={styles.adminLabel}>Name</label>
+                      <input
+                        id="np-name"
+                        type="text"
+                        value={newProduct.name}
+                        onChange={(e) => setNewProduct((p) => ({ ...p, name: e.target.value }))}
+                        placeholder="Product name"
+                        required
+                        autoComplete="off"
+                      />
+                    </div>
+                    <div className={styles.formGroup}>
+                      <label htmlFor="np-desc" className={styles.adminLabel}>Description</label>
+                      <textarea
+                        id="np-desc"
+                        rows={3}
+                        value={newProduct.description}
+                        onChange={(e) => setNewProduct((p) => ({ ...p, description: e.target.value }))}
+                        placeholder="Optional"
+                      />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div className={styles.formGroup} style={{ marginBottom: 0 }}>
+                        <label htmlFor="np-price" className={styles.adminLabel}>Price (₱)</label>
+                        <input
+                          id="np-price"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={newProduct.price}
+                          onChange={(e) => setNewProduct((p) => ({ ...p, price: e.target.value }))}
+                          required
+                        />
+                      </div>
+                      <div className={styles.formGroup} style={{ marginBottom: 0 }}>
+                        <label htmlFor="np-stock" className={styles.adminLabel}>Stock</label>
+                        <input
+                          id="np-stock"
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={newProduct.stock}
+                          onChange={(e) => setNewProduct((p) => ({ ...p, stock: e.target.value }))}
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div className={styles.formGroup}>
+                      <label htmlFor="np-cat" className={styles.adminLabel}>Category</label>
+                      <select
+                        id="np-cat"
+                        value={newProduct.category_id}
+                        onChange={(e) => setNewProduct((p) => ({ ...p, category_id: e.target.value }))}
+                        required
+                      >
+                        <option value="">Select a category</option>
+                        {(categories || []).map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className={styles.formGroup}>
+                      <label htmlFor="np-img" className={styles.adminLabel}>Image URL</label>
+                      <input
+                        id="np-img"
+                        type="url"
+                        value={newProduct.image}
+                        onChange={(e) => setNewProduct((p) => ({ ...p, image: e.target.value }))}
+                        placeholder="https://…"
+                      />
+                    </div>
+                    <div className={styles.formGroup}>
+                      <span className={styles.adminLabel} id="np-sizes-label">Sizes</span>
+                      <details className={styles.adminSizeDropdown} aria-labelledby="np-sizes-label">
+                        <summary>{formatAdminSizesSummary(newProduct.sizes)}</summary>
+                        <div className={styles.adminSizePanel}>
+                          <div className={styles.adminSizeToolbar}>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setNewProduct((p) => ({ ...p, sizes: [...PRODUCT_SIZE_OPTIONS] }));
+                              }}
+                            >
+                              All sizes
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setNewProduct((p) => ({ ...p, sizes: [] }));
+                              }}
+                            >
+                              Clear
+                            </button>
+                          </div>
+                          <div className={styles.adminSizeList}>
+                            {PRODUCT_SIZE_OPTIONS.map((s) => (
+                              <label key={s} className={styles.adminSizeRow}>
+                                <input
+                                  type="checkbox"
+                                  checked={newProduct.sizes.includes(s)}
+                                  onChange={(e) => {
+                                    setNewProduct((p) => ({
+                                      ...p,
+                                      sizes: e.target.checked
+                                        ? [...p.sizes, s]
+                                        : p.sizes.filter((x) => x !== s),
+                                    }));
+                                  }}
+                                />
+                                <span>{s}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      </details>
+                      <p style={{ fontSize: 12, color: '#64748b', marginTop: 8, marginBottom: 0, lineHeight: 1.45 }}>
+                        Open to choose sizes. Use &quot;All sizes&quot; to select the full list ({PRODUCT_SIZE_OPTIONS.length} options).
+                      </p>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div className={styles.formGroup} style={{ marginBottom: 0 }}>
+                        <label htmlFor="np-cap" className={styles.adminLabel}>Max sales per period (optional)</label>
+                        <input
+                          id="np-cap"
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={newProduct.sales_cap_quantity}
+                          onChange={(e) => setNewProduct((p) => ({ ...p, sales_cap_quantity: e.target.value }))}
+                          placeholder="e.g. 15"
+                        />
+                      </div>
+                      <div className={styles.formGroup} style={{ marginBottom: 0 }}>
+                        <label htmlFor="np-cap-period" className={styles.adminLabel}>Apply cap to</label>
+                        <select
+                          id="np-cap-period"
+                          value={newProduct.sales_cap_period}
+                          onChange={(e) => setNewProduct((p) => ({ ...p, sales_cap_period: e.target.value }))}
+                        >
+                          <option value="">No cap (only warehouse stock limits sales)</option>
+                          <option value="month">This calendar month</option>
+                          <option value="year">This calendar year</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap', marginTop: 20 }}>
+                      <button
+                        type="button"
+                        className={styles.secondaryBtn}
+                        disabled={productCreating}
+                        onClick={() => {
+                          setAddProductOpen(false);
+                          resetNewProductForm();
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button type="submit" className={styles.adminSaveBtn} disabled={productCreating}>
+                        {productCreating ? 'Saving…' : 'Submit for approval'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
             {activeTab === 'products' && (
               <div className={styles.card}>
                 <div className={styles.cardHeader}>
-                  <h2>Product Inventory</h2>
+                  <h2>All products</h2>
+                  <button type="button" className={styles.adminSaveBtn} onClick={() => { resetNewProductForm(); setAddProductOpen(true); }}>
+                    <Plus size={18} strokeWidth={2} aria-hidden />
+                    Add product
+                  </button>
                 </div>
                 <div className={styles.cardBody}>
+                  <div
+                    role="tablist"
+                    aria-label="Filter products"
+                    style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}
+                  >
+                    {[
+                      { key: 'all', label: 'All' },
+                      { key: 'pending', label: 'Pending approval' },
+                      { key: 'live', label: 'Live' },
+                      { key: 'rejected', label: 'Rejected' },
+                    ].map(({ key, label }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        role="tab"
+                        aria-selected={productsScopeTab === key}
+                        className={styles.secondaryBtn}
+                        style={{
+                          fontWeight: 800,
+                          borderRadius: 10,
+                          borderWidth: 2,
+                          borderColor: productsScopeTab === key ? '#2563eb' : undefined,
+                          background: productsScopeTab === key ? '#eff6ff' : undefined,
+                          color: productsScopeTab === key ? '#1d4ed8' : undefined,
+                        }}
+                        onClick={() => setProductsScopeTab(key)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                   <div className={styles.adminTableSearchRow}>
                     <div className={styles.adminSearchWrap}>
                       <Search size={20} strokeWidth={1.5} aria-hidden />
@@ -1400,6 +1975,7 @@ export default function AdminDashboard() {
                               />
                             </th>
                             <th>Product</th>
+                            <th>Status</th>
                             <th>Seller</th>
                             <th>Category</th>
                             <th>Stock</th>
@@ -1436,6 +2012,17 @@ export default function AdminDashboard() {
                                   <span>{p.name}</span>
                                 </div>
                               </td>
+                              <td>
+                                {(p.approval_status || 'approved') === 'pending' && (
+                                  <span style={{ fontSize: 12, fontWeight: 800, color: '#b45309', background: '#fffbeb', padding: '4px 8px', borderRadius: 8 }}>Pending</span>
+                                )}
+                                {(p.approval_status || 'approved') === 'approved' && (
+                                  <span style={{ fontSize: 12, fontWeight: 800, color: '#15803d', background: '#ecfdf5', padding: '4px 8px', borderRadius: 8 }}>Live</span>
+                                )}
+                                {(p.approval_status || '') === 'rejected' && (
+                                  <span style={{ fontSize: 12, fontWeight: 800, color: '#b91c1c', background: '#fef2f2', padding: '4px 8px', borderRadius: 8 }}>Rejected</span>
+                                )}
+                              </td>
                               <td>{p.seller?.name || '-'}</td>
                               <td>{p.category?.name || '-'}</td>
                               <td>
@@ -1453,10 +2040,39 @@ export default function AdminDashboard() {
                                 {(p.stock ?? 0) > 0 && (p.stock ?? 0) <= 5 && (
                                   <span className={styles.adminLowStockLabel}>Low Stock</span>
                                 )}
+                                {p.sales_cap_quantity ? (
+                                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                                    Cap: {p.sales_cap_quantity}/{p.sales_cap_period === 'year' ? 'yr' : 'mo'}
+                                  </div>
+                                ) : null}
                               </td>
                               <td>₱{Number(p.price || 0).toFixed(2)}</td>
                               <td style={{ textAlign: 'right' }}>
                                 <div style={{ display: 'inline-flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                  {(p.approval_status || 'approved') === 'pending' && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        className={styles.adminSaveBtn}
+                                        title="Publish to store"
+                                        disabled={productApprovalLoadingId === p.id}
+                                        onClick={() => handleApproveProduct(p.id)}
+                                      >
+                                        <BadgeCheck size={16} strokeWidth={2} aria-hidden />
+                                        <span className={styles.adminActionText}>Publish</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className={styles.adminBtnDeleteSoft}
+                                        title="Reject listing"
+                                        disabled={productApprovalLoadingId === p.id}
+                                        onClick={() => handleRejectProduct(p.id)}
+                                      >
+                                        <X size={16} strokeWidth={2} aria-hidden />
+                                        <span className={styles.adminActionText}>Reject</span>
+                                      </button>
+                                    </>
+                                  )}
                                   <button
                                     type="button"
                                     className={styles.adminBtnArchive}
@@ -1465,15 +2081,6 @@ export default function AdminDashboard() {
                                   >
                                     <Archive size={16} strokeWidth={1.75} aria-hidden />
                                     <span className={styles.adminActionText}>Archive</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className={styles.adminBtnDeleteSoft}
-                                    title="Delete product permanently"
-                                    onClick={() => requestDeleteProduct(p.id)}
-                                  >
-                                    <Trash2 size={16} strokeWidth={1.75} aria-hidden />
-                                    <span className={styles.adminActionText}>Delete</span>
                                   </button>
                                 </div>
                               </td>
@@ -1485,6 +2092,136 @@ export default function AdminDashboard() {
                   )}
                 </div>
               </div>
+            )}
+
+            {activeTab === 'inventory' && (
+              <>
+                <div className={styles.adminStatsGrid} style={{ marginBottom: 20 }}>
+                  <div className={`${styles.adminStatCard} ${styles.adminStatSales}`}>
+                    <div className={styles.adminStatTop}>
+                      <div className={styles.adminStatIcon} aria-hidden>
+                        <PackageSearch size={18} strokeWidth={1.75} />
+                      </div>
+                    </div>
+                    <div className={styles.adminStatValue}>
+                      {(inventoryTotals.total_units_sold ?? 0).toLocaleString('en-PH')}
+                    </div>
+                    <div className={styles.adminStatLabel}>Total units sold</div>
+                    <div className={styles.adminStatMeta}>All non-cancelled orders</div>
+                  </div>
+                  <div className={`${styles.adminStatCard} ${styles.adminStatOrders}`}>
+                    <div className={styles.adminStatTop}>
+                      <div className={styles.adminStatIcon} aria-hidden>
+                        <TrendingUp size={18} strokeWidth={1.75} />
+                      </div>
+                    </div>
+                    <div className={styles.adminStatValue}>
+                      ₱
+                      {Number(inventoryTotals.total_sales_amount ?? 0).toLocaleString('en-PH', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </div>
+                    <div className={styles.adminStatLabel}>Total sales (line totals)</div>
+                    <div className={styles.adminStatMeta}>Σ qty × line price</div>
+                  </div>
+                </div>
+                <div className={styles.card}>
+                  <div className={styles.cardHeader}>
+                    <h2>Sales by product</h2>
+                  </div>
+                  <div className={styles.cardBody}>
+                    <div
+                      className={styles.adminTableSearchRow}
+                      style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}
+                    >
+                      <div className={styles.adminSearchWrap} style={{ flex: '1 1 220px' }}>
+                        <Search size={20} strokeWidth={1.5} aria-hidden />
+                        <input
+                          type="search"
+                          value={inventorySearch}
+                          onChange={(e) => setInventorySearch(e.target.value)}
+                          placeholder="Search by product or category…"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        className={styles.secondaryBtn}
+                        style={{ flexShrink: 0 }}
+                        disabled={inventoryLoading}
+                        onClick={() => {
+                          setInventoryLoading(true);
+                          fetchAdminInventoryReport()
+                            .then((res) => {
+                              setInventoryRows(res.data?.products || []);
+                              setInventoryTotals(res.data?.totals || { total_units_sold: 0, total_sales_amount: 0 });
+                            })
+                            .catch(() => {
+                              setInventoryRows([]);
+                              setInventoryTotals({ total_units_sold: 0, total_sales_amount: 0 });
+                            })
+                            .finally(() => setInventoryLoading(false));
+                        }}
+                      >
+                        <RefreshCw size={16} strokeWidth={1.75} aria-hidden />
+                        Refresh
+                      </button>
+                    </div>
+                    {inventoryLoading ? (
+                      <p>Loading…</p>
+                    ) : filteredInventoryRows.length === 0 ? (
+                      <p className={styles.emptyState}>
+                        {(inventoryRows || []).length === 0
+                          ? 'No active products in catalog.'
+                          : 'No products match your search.'}
+                      </p>
+                    ) : (
+                      <div className={styles.usersTable}>
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Product</th>
+                              <th>Category</th>
+                              <th>Stock</th>
+                              <th>Units sold</th>
+                              <th style={{ textAlign: 'right' }}>Sales total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredInventoryRows.map((row) => (
+                              <tr key={row.id}>
+                                <td>{row.name}</td>
+                                <td>{row.category || '—'}</td>
+                                <td>
+                                  <span
+                                    className={`${styles.adminStock} ${
+                                      (row.stock ?? 0) === 0
+                                        ? styles.adminStockZero
+                                        : (row.stock ?? 0) <= 5
+                                        ? styles.adminStockLow
+                                        : ''
+                                    }`}
+                                  >
+                                    {row.stock ?? 0}
+                                  </span>
+                                </td>
+                                <td>{(row.units_sold ?? 0).toLocaleString('en-PH')}</td>
+                                <td style={{ textAlign: 'right', fontWeight: 700 }}>
+                                  ₱
+                                  {Number(row.sales_total ?? 0).toLocaleString('en-PH', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
             )}
 
             {activeTab === 'categories' && (
@@ -1661,15 +2398,6 @@ export default function AdminDashboard() {
                                     <Archive size={16} strokeWidth={1.75} aria-hidden />
                                     <span className={styles.adminActionText}>Archive</span>
                                   </button>
-                                  <button
-                                    type="button"
-                                    className={styles.adminBtnDeleteSoft}
-                                    title="Delete customer permanently"
-                                    onClick={() => requestDeleteUser(u.id)}
-                                  >
-                                    <Trash2 size={16} strokeWidth={1.75} aria-hidden />
-                                    <span className={styles.adminActionText}>Delete</span>
-                                  </button>
                                 </div>
                               </td>
                             </tr>
@@ -1724,13 +2452,13 @@ export default function AdminDashboard() {
             )}
 
             {activeTab === 'settings' && (
-              <div className={`${styles.card} ${styles.adminSettingsDarkPage}`}>
+              <div className={`${styles.card} ${styles.adminSettingsLightPage}`}>
                 <div className={styles.adminSettingsPageHeader}>
                   <div>
                     <h2>Settings</h2>
                     <p className={styles.adminSettingsSubtitle}>
                       {settingsTab === 'archive'
-                        ? 'Restore archived catalog items and customer accounts, or remove them permanently.'
+                        ? 'Restore archived catalog items and customer accounts when needed.'
                         : 'General, appearance, and notification preferences.'}
                     </p>
                   </div>
@@ -1796,7 +2524,7 @@ export default function AdminDashboard() {
                       <div className={styles.adminSettingsCard} style={{ gridColumn: '1 / -1' }}>
                         <div className={styles.adminSettingsSectionTitle}>Manage riders</div>
                         <p className={styles.adminSettingsSubtitle} style={{ marginBottom: 16 }}>
-                          Two built-in fleet accounts. Edit names and contact details shown to customers on shipped orders.
+                          Fleet riders: names, contact, plate, and base address for dispatch and ride records.
                         </p>
                         {fleetRiders.length === 0 ? (
                           <p className={styles.adminSettingsMuted}>No riders found. Run php artisan db:seed --class=RiderSeeder</p>
@@ -1822,7 +2550,7 @@ export default function AdminDashboard() {
                                       value={riderDrafts[r.id]?.name ?? ''}
                                       onChange={(e) => setRiderDrafts((prev) => ({
                                         ...prev,
-                                        [r.id]: { ...prev[r.id], name: e.target.value, phone: prev[r.id]?.phone ?? '', vehicle_plate: prev[r.id]?.vehicle_plate ?? '' },
+                                        [r.id]: { ...prev[r.id], name: e.target.value },
                                       }))}
                                     />
                                   </div>
@@ -1835,7 +2563,7 @@ export default function AdminDashboard() {
                                       value={riderDrafts[r.id]?.phone ?? ''}
                                       onChange={(e) => setRiderDrafts((prev) => ({
                                         ...prev,
-                                        [r.id]: { ...prev[r.id], phone: e.target.value, name: prev[r.id]?.name ?? '', vehicle_plate: prev[r.id]?.vehicle_plate ?? '' },
+                                        [r.id]: { ...prev[r.id], phone: e.target.value },
                                       }))}
                                     />
                                   </div>
@@ -1848,8 +2576,23 @@ export default function AdminDashboard() {
                                       value={riderDrafts[r.id]?.vehicle_plate ?? ''}
                                       onChange={(e) => setRiderDrafts((prev) => ({
                                         ...prev,
-                                        [r.id]: { ...prev[r.id], vehicle_plate: e.target.value, name: prev[r.id]?.name ?? '', phone: prev[r.id]?.phone ?? '' },
+                                        [r.id]: { ...prev[r.id], vehicle_plate: e.target.value },
                                       }))}
+                                    />
+                                  </div>
+                                  <div className={styles.formGroup}>
+                                    <label className={styles.adminLabel} htmlFor={`rider-address-${r.id}`}>
+                                      <strong>Base address</strong>
+                                    </label>
+                                    <textarea
+                                      id={`rider-address-${r.id}`}
+                                      rows={3}
+                                      value={riderDrafts[r.id]?.address ?? ''}
+                                      onChange={(e) => setRiderDrafts((prev) => ({
+                                        ...prev,
+                                        [r.id]: { ...prev[r.id], address: e.target.value },
+                                      }))}
+                                      style={{ width: '100%', resize: 'vertical', fontFamily: 'inherit' }}
                                     />
                                   </div>
                                 </div>
@@ -1874,7 +2617,7 @@ export default function AdminDashboard() {
                     <div className={styles.adminArchiveRecovery}>
                       <div className={styles.adminArchiveSection}>
                         <h3 className={styles.adminArchiveHeading}>Archived Products</h3>
-                        <p className={styles.adminArchiveHint}>Items hidden from the storefront and seller inventory lists.</p>
+                        <p className={styles.adminArchiveHint}>Items hidden from the storefront and seller catalog lists.</p>
                         <div className={styles.adminTableSearchRow}>
                           <div className={styles.adminSearchWrap}>
                             <Search size={20} strokeWidth={1.5} aria-hidden />
@@ -1892,10 +2635,6 @@ export default function AdminDashboard() {
                             <button type="button" className={styles.adminBtnRestore} onClick={handleBatchRestoreArchivedProducts}>
                               <RotateCcw size={16} strokeWidth={1.75} aria-hidden />
                               Restore selected
-                            </button>
-                            <button type="button" className={styles.adminBtnDeleteSoft} onClick={handleBatchPermanentDeleteArchivedProducts}>
-                              <Trash2 size={16} strokeWidth={1.75} aria-hidden />
-                              Delete permanently
                             </button>
                           </div>
                         )}
@@ -1972,15 +2711,6 @@ export default function AdminDashboard() {
                                         >
                                           <RotateCcw size={18} strokeWidth={2} aria-hidden />
                                         </button>
-                                        <button
-                                          type="button"
-                                          className={`${styles.adminArchiveIconBtn} ${styles.adminArchiveIconBtnDelete}`}
-                                          title="Permanent delete"
-                                          aria-label={`Permanently delete product ${p.name}`}
-                                          onClick={() => requestDeleteProduct(p.id)}
-                                        >
-                                          <Trash2 size={18} strokeWidth={2} aria-hidden />
-                                        </button>
                                       </div>
                                     </td>
                                   </tr>
@@ -2011,10 +2741,6 @@ export default function AdminDashboard() {
                             <button type="button" className={styles.adminBtnRestore} onClick={handleBatchRestoreArchivedUsers}>
                               <RotateCcw size={16} strokeWidth={1.75} aria-hidden />
                               Restore selected
-                            </button>
-                            <button type="button" className={styles.adminBtnDeleteSoft} onClick={handleBatchPermanentDeleteArchivedUsers}>
-                              <Trash2 size={16} strokeWidth={1.75} aria-hidden />
-                              Delete permanently
                             </button>
                           </div>
                         )}
@@ -2078,15 +2804,6 @@ export default function AdminDashboard() {
                                           onClick={() => handleRestoreUser(u.id)}
                                         >
                                           <RotateCcw size={18} strokeWidth={2} aria-hidden />
-                                        </button>
-                                        <button
-                                          type="button"
-                                          className={`${styles.adminArchiveIconBtn} ${styles.adminArchiveIconBtnDelete}`}
-                                          title="Permanent delete"
-                                          aria-label={`Permanently delete customer ${u.name}`}
-                                          onClick={() => requestDeleteUser(u.id)}
-                                        >
-                                          <Trash2 size={18} strokeWidth={2} aria-hidden />
                                         </button>
                                       </div>
                                     </td>

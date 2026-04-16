@@ -1,0 +1,217 @@
+// E-commerce schema — paste into https://dbdiagram.io/d
+// Laravel migrations (roles, users, catalog, orders, cart, messaging, riders, store settings)
+
+Table roles {
+  id bigint [pk, increment]
+  name varchar [unique, not null, note: 'e.g. admin, customer, rider']
+  description varchar [null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table users {
+  id bigint [pk, increment]
+  name varchar [not null]
+  email varchar [unique, not null]
+  email_verified_at timestamp [null]
+  password varchar [not null]
+  remember_token varchar [null]
+  role_id bigint [null, note: 'FK → roles']
+  phone varchar [null]
+  address text [null]
+  is_archived boolean [not null, default: false]
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (role_id)
+  }
+}
+
+Table categories {
+  id bigint [pk, increment]
+  name varchar [not null]
+  slug varchar [unique, not null]
+  description text [null]
+  image varchar [null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table products {
+  id bigint [pk, increment]
+  name varchar [not null]
+  slug varchar [unique, not null]
+  description text [null]
+  price decimal(10,2) [not null]
+  stock int [not null, default: 0]
+  sizes json [null, note: 'available sizes array']
+  color varchar [null]
+  image varchar [null]
+  category_id bigint [not null, note: 'FK → categories']
+  seller_id bigint [not null, note: 'FK → users (listing owner; often admin after seller merge)']
+  is_active boolean [not null, default: true]
+  is_archived boolean [not null, default: false]
+  approval_status varchar(32) [not null, default: 'approved']
+  sales_cap_quantity int [null]
+  sales_cap_period varchar(16) [null, note: 'month | year']
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (category_id)
+    (seller_id)
+  }
+}
+
+Table riders {
+  id bigint [pk, increment]
+  user_id bigint [unique, not null, note: 'FK → users, one profile per user']
+  phone varchar(32) [null]
+  vehicle_plate varchar(32) [not null]
+  address text [null]
+  status varchar(16) [not null, default: 'available', note: 'available | busy']
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table orders {
+  id bigint [pk, increment]
+  customer_id bigint [not null, note: 'FK → users']
+  rider_id bigint [null, note: 'FK → riders']
+  picked_up_at timestamp [null]
+  order_number varchar [unique, not null]
+  total_amount decimal(10,2) [not null]
+  status varchar [not null, default: 'pending']
+  payment_status varchar [not null, default: 'pending']
+  shipping_address text [null]
+  phone varchar [null]
+  received_by varchar [null]
+  received_at timestamp [null]
+  customer_feedback text [null]
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (customer_id)
+    (rider_id)
+  }
+}
+
+Table order_items {
+  id bigint [pk, increment]
+  order_id bigint [not null, note: 'FK → orders']
+  product_id bigint [not null, note: 'FK → products']
+  quantity int [not null]
+  price decimal(10,2) [not null, note: 'unit price at checkout']
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (order_id)
+    (product_id)
+  }
+}
+
+Table cart_items {
+  id bigint [pk, increment]
+  user_id bigint [not null, note: 'FK → users']
+  product_id bigint [not null, note: 'FK → products']
+  quantity int [not null, default: 1]
+  size varchar(64) [not null, default: '']
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (user_id, product_id, size) [unique]
+  }
+}
+
+Table wishlists {
+  id bigint [pk, increment]
+  user_id bigint [not null, note: 'FK → users']
+  product_id bigint [not null, note: 'FK → products']
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (user_id, product_id) [unique]
+  }
+}
+
+Table conversations {
+  id bigint [pk, increment]
+  seller_id bigint [not null, note: 'FK → users']
+  customer_id bigint [not null, note: 'FK → users']
+  product_id bigint [null, note: 'FK → products, optional thread context']
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (seller_id)
+    (customer_id)
+    (product_id)
+  }
+}
+
+Table messages {
+  id bigint [pk, increment]
+  conversation_id bigint [not null, note: 'FK → conversations']
+  user_id bigint [not null, note: 'FK → users (author)']
+  body text [not null]
+  read_at timestamp [null]
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (conversation_id)
+    (user_id)
+  }
+}
+
+Table store_settings {
+  id bigint [pk, increment]
+  store_name varchar [not null, default: 'urbanNxt']
+  support_email varchar [null]
+  description text [null]
+  logo_data_url text [null]
+  brand_primary varchar [not null, default: '#4f46e5']
+  brand_accent varchar [not null, default: '#2563eb']
+  banner_text varchar [null]
+  banner_enabled boolean [not null, default: true]
+  maintenance_mode boolean [not null, default: false]
+  enable_coupons boolean [not null, default: true]
+  enable_2fa boolean [not null, default: false]
+  email_on_new_order boolean [not null, default: true]
+  sms_alerts boolean [not null, default: false]
+  created_at timestamp
+  updated_at timestamp
+}
+
+// --- Relationships (FK direction: many → one) ---
+
+Ref: users.role_id > roles.id [delete: set null]
+
+Ref: products.category_id > categories.id [delete: cascade]
+Ref: products.seller_id > users.id [delete: cascade]
+
+Ref: riders.user_id - users.id [delete: cascade]
+
+Ref: orders.customer_id > users.id [delete: cascade]
+Ref: orders.rider_id > riders.id [delete: set null]
+
+Ref: order_items.order_id > orders.id [delete: cascade]
+Ref: order_items.product_id > products.id [delete: cascade]
+
+Ref: cart_items.user_id > users.id [delete: cascade]
+Ref: cart_items.product_id > products.id [delete: cascade]
+
+Ref: wishlists.user_id > users.id [delete: cascade]
+Ref: wishlists.product_id > products.id [delete: cascade]
+
+Ref: conversations.seller_id > users.id [delete: cascade]
+Ref: conversations.customer_id > users.id [delete: cascade]
+Ref: conversations.product_id > products.id [delete: set null]
+
+Ref: messages.conversation_id > conversations.id [delete: cascade]
+Ref: messages.user_id > users.id [delete: cascade]

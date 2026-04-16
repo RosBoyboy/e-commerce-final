@@ -4,9 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
-use App\Models\Conversation;
-use App\Models\Message;
 use App\Models\Rider;
+use App\Services\OrderChatService;
 use Illuminate\Http\Request;
 
 class SellerOrderController extends Controller
@@ -64,31 +63,9 @@ class SellerOrderController extends Controller
             if ($current !== 'shipped') {
                 $order->update(['status' => 'shipped']);
 
-                // Auto-chat: notify customer that order has been shipped
-                $customer = $order->customer;
-                $lineForSeller = $order->items->firstWhere(fn ($item) => optional($item->product)->seller_id === $sellerId) ?? $order->items->first();
-                $product = optional($lineForSeller)->product;
-                if ($customer && $product) {
-                    $conversation = Conversation::firstOrCreate(
-                        [
-                            'seller_id' => $sellerId,
-                            'customer_id' => $customer->id,
-                        ],
-                        ['product_id' => $product->id]
-                    );
-                    if (!$conversation->product_id && $product->id) {
-                        $conversation->update(['product_id' => $product->id]);
-                    }
-                    Message::create([
-                        'conversation_id' => $conversation->id,
-                        'user_id' => $sellerId,
-                        'body' => sprintf(
-                            'Hi %s! Your order for %s has been shipped. You will receive your tracking number shortly. Stay stylish!',
-                            $customer->name ?? 'there',
-                            $product->name ?? 'your item'
-                        ),
-                    ]);
-                }
+                $order = $order->fresh(['customer:id,name,email', 'items.product:id,name,slug,image,seller_id']);
+                $body = OrderChatService::bodySellerShipped($order);
+                OrderChatService::sendSellerAutomatedMessage($order, $body, 'shipped');
             }
         }
 

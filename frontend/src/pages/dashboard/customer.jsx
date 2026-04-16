@@ -25,6 +25,11 @@ const COLORS = [
 ];
 const CATEGORIES = ['Men', 'Women', 'Kids'];
 
+function formatOrderStatusDisplay(statusRaw) {
+  if ((statusRaw || '').toLowerCase() === 'delivered') return 'Completed';
+  return statusRaw || '—';
+}
+
 export default function CustomerDashboard() {
   const router = useRouter();
   const { user } = useAuth();
@@ -628,7 +633,9 @@ export default function CustomerDashboard() {
                             >
                               <div className={styles.orderHeader}>
                                 <h3>Order #{order.order_number}</h3>
-                                <span className={`${styles.status} ${styles[status]}`}>{order.status}</span>
+                                <span className={`${styles.status} ${styles[status]}`}>
+                                  {formatOrderStatusDisplay(order.status)}
+                                </span>
                               </div>
                               <p>Date: {new Date(order.created_at).toLocaleDateString()}</p>
                               <p>Total: ₱{parseFloat(order.total_amount).toFixed(2)}</p>
@@ -906,7 +913,7 @@ export default function CustomerDashboard() {
                   color: '#111827',
                 }}
               >
-                {(selectedOrder.status || '').toUpperCase()}
+                {formatOrderStatusDisplay(selectedOrder.status).toUpperCase()}
               </p>
               {selectedOrder.rider &&
                 ['shipped', 'delivered'].includes((selectedOrder.status || '').toLowerCase()) && (

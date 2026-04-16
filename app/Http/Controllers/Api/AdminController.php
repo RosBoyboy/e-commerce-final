@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Models\Order;
 use App\Models\Rider;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class AdminController extends Controller
@@ -173,6 +174,7 @@ class AdminController extends Controller
                 'email' => $r->user ? $r->user->email : null,
                 'phone' => $r->phone,
                 'vehicle_plate' => $r->vehicle_plate,
+                'address' => $r->address,
                 'status' => $r->status,
             ]);
 
@@ -187,6 +189,7 @@ class AdminController extends Controller
             'name' => 'sometimes|nullable|string|max:255',
             'phone' => 'sometimes|nullable|string|max:32',
             'vehicle_plate' => 'sometimes|nullable|string|max:32',
+            'address' => 'sometimes|nullable|string|max:2000',
         ]);
 
         if (!empty($validated['name']) && $rider->user) {
@@ -197,6 +200,9 @@ class AdminController extends Controller
         }
         if (array_key_exists('vehicle_plate', $validated)) {
             $rider->vehicle_plate = $validated['vehicle_plate'];
+        }
+        if (array_key_exists('address', $validated)) {
+            $rider->address = $validated['address'];
         }
         $rider->save();
 
@@ -211,6 +217,7 @@ class AdminController extends Controller
                 'email' => $rider->user ? $rider->user->email : null,
                 'phone' => $rider->phone,
                 'vehicle_plate' => $rider->vehicle_plate,
+                'address' => $rider->address,
                 'status' => $rider->status,
             ],
         ], 200);
@@ -233,6 +240,65 @@ class AdminController extends Controller
         return response()->json([
             'message' => 'Rider assigned.',
             'order' => $order->fresh(['customer', 'items.product', 'rider.user']),
+        ], 200);
+    }
+
+    /**
+     * Per-product stock, units sold (non-cancelled orders), line revenue, and store-wide sold totals.
+     */
+    public function inventoryReport(Request $request)
+    {
+        $this->ensureAdmin($request);
+
+        $soldAgg = DB::table('order_items')
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->where('orders.status', '!=', 'cancelled')
+            ->selectRaw('
+                order_items.product_id,
+                COALESCE(SUM(order_items.quantity), 0) as units_sold,
+                COALESCE(SUM(order_items.quantity * order_items.price), 0) as revenue
+            ')
+            ->groupBy('order_items.product_id')
+            ->get()
+            ->keyBy('product_id');
+
+        $grandRevenue = (float) (DB::table('order_items')
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->where('orders.status', '!=', 'cancelled')
+            ->selectRaw('COALESCE(SUM(order_items.quantity * order_items.price), 0) as t')
+            ->value('t') ?? 0);
+
+        $grandUnits = (int) (DB::table('order_items')
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->where('orders.status', '!=', 'cancelled')
+            ->selectRaw('COALESCE(SUM(order_items.quantity), 0) as u')
+            ->value('u') ?? 0);
+
+        $products = Product::with('category:id,name')
+            ->where('is_archived', false)
+            ->orderBy('name')
+            ->get();
+
+        $rows = $products->map(function ($p) use ($soldAgg) {
+            $row = $soldAgg->get($p->id) ?? $soldAgg->get((string) $p->id);
+
+            return [
+                'id' => $p->id,
+                'name' => $p->name,
+                'category' => $p->category ? $p->category->name : null,
+                'stock' => (int) $p->stock,
+                'unit_price' => round((float) $p->price, 2),
+                'units_sold' => $row ? (int) $row->units_sold : 0,
+                'sales_total' => $row ? round((float) $row->revenue, 2) : 0.0,
+            ];
+        });
+
+        return response()->json([
+            'products' => $rows->values(),
+            'totals' => [
+                'total_units_sold' => $grandUnits,
+                'total_sales_amount' => round($grandRevenue, 2),
+            ],
         ], 200);
     }
 
@@ -334,27 +400,94 @@ class AdminController extends Controller
             'is_active' => 'nullable|boolean',
             'sizes' => 'nullable|array',
             'sizes.*' => 'string|max:20',
+            'sales_cap_quantity' => 'nullable|integer|min:1',
+            'sales_cap_period' => 'required_with:sales_cap_quantity|nullable|in:month,year',
         ]);
 
         $sizes = isset($validated['sizes'])
             ? array_values(array_filter(array_map('trim', $validated['sizes'])))
             : null;
 
+        $capQty = $validated['sales_cap_quantity'] ?? null;
+        $capPeriod = $validated['sales_cap_period'] ?? null;
+        if (!$capQty) {
+            $capPeriod = null;
+        }
+
+        $sellerId = $validated['seller_id'] ?? $request->user()->id;
+
         $product = Product::create([
             'name' => $validated['name'],
-            'slug' => Str::slug($validated['name']),
+            'slug' => $this->uniqueProductSlug($validated['name']),
             'description' => $validated['description'] ?? null,
             'price' => $validated['price'],
             'stock' => $validated['stock'],
             'image' => $validated['image'] ?? null,
             'category_id' => $validated['category_id'],
-            'seller_id' => $validated['seller_id'] ?? null,
+            'seller_id' => $sellerId,
             'is_active' => $validated['is_active'] ?? true,
             'is_archived' => false,
             'sizes' => $sizes,
+            'approval_status' => Product::APPROVAL_PENDING,
+            'sales_cap_quantity' => $capQty,
+            'sales_cap_period' => $capPeriod,
         ]);
 
-        return response()->json(['message' => 'Product created.', 'product' => $product], 201);
+        return response()->json([
+            'message' => 'Product submitted for approval. It will appear in the store after an admin publishes it.',
+            'product' => $product->load(['category:id,name', 'seller:id,name,email']),
+        ], 201);
+    }
+
+    public function approveProduct(Request $request, $id)
+    {
+        $this->ensureAdmin($request);
+        $product = Product::findOrFail($id);
+        if ($product->approval_status === Product::APPROVAL_APPROVED) {
+            return response()->json(['message' => 'Product is already live.', 'product' => $product->fresh(['category', 'seller'])], 200);
+        }
+        if ($product->approval_status === Product::APPROVAL_REJECTED) {
+            abort(422, 'Rejected products cannot be approved. Edit the product or create a new one.');
+        }
+        $product->update([
+            'approval_status' => Product::APPROVAL_APPROVED,
+            'slug' => $this->uniqueProductSlug($product->name, $product->id),
+        ]);
+
+        return response()->json([
+            'message' => 'Product is now visible to customers.',
+            'product' => $product->fresh(['category', 'seller']),
+        ], 200);
+    }
+
+    public function rejectProduct(Request $request, $id)
+    {
+        $this->ensureAdmin($request);
+        $product = Product::findOrFail($id);
+        if ($product->approval_status !== Product::APPROVAL_PENDING) {
+            abort(422, 'Only pending products can be rejected.');
+        }
+        $product->update(['approval_status' => Product::APPROVAL_REJECTED]);
+
+        return response()->json([
+            'message' => 'Product rejected. It will stay hidden from the store.',
+            'product' => $product->fresh(['category', 'seller']),
+        ], 200);
+    }
+
+    private function uniqueProductSlug(string $name, ?int $ignoreProductId = null): string
+    {
+        $base = Str::slug($name);
+        $slug = $base ?: 'product';
+        $n = 0;
+        while (Product::where('slug', $slug)
+            ->when($ignoreProductId, fn ($q) => $q->where('id', '!=', $ignoreProductId))
+            ->exists()) {
+            $n++;
+            $slug = ($base ?: 'product').'-'.$n;
+        }
+
+        return $slug;
     }
 
     public function updateProduct(Request $request, $id)
@@ -372,13 +505,19 @@ class AdminController extends Controller
             'is_active' => 'nullable|boolean',
             'sizes' => 'nullable|array',
             'sizes.*' => 'string|max:20',
+            'sales_cap_quantity' => 'nullable|integer|min:1',
+            'sales_cap_period' => 'required_with:sales_cap_quantity|nullable|in:month,year',
         ]);
 
         if (array_key_exists('sizes', $validated)) {
             $validated['sizes'] = array_values(array_filter(array_map('trim', $validated['sizes'])));
         }
         if (isset($validated['name'])) {
-            $validated['slug'] = Str::slug($validated['name']);
+            $validated['slug'] = $this->uniqueProductSlug($validated['name'], (int) $product->id);
+        }
+
+        if (array_key_exists('sales_cap_quantity', $validated) && !$validated['sales_cap_quantity']) {
+            $validated['sales_cap_period'] = null;
         }
 
         $product->update(array_filter($validated, fn ($v) => $v !== null));

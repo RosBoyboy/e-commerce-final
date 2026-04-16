@@ -10,6 +10,7 @@ class Rider extends Model
         'user_id',
         'phone',
         'vehicle_plate',
+        'address',
         'status',
     ];
 

@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import styles from '@/styles/riderPortal.module.scss';
 
 const SIDENAV = [
-  { key: 'tasks', label: 'My Tasks', href: '/dashboard/rider', icon: ClipboardList },
+  { key: 'tasks', label: 'Tracking', href: '/dashboard/rider', icon: ClipboardList },
   { key: 'earnings', label: 'Earnings', href: '/dashboard/rider/earnings', icon: Wallet },
   { key: 'profile', label: 'Profile', href: '/dashboard/rider/profile', icon: User },
 ];
