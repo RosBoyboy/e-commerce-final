@@ -23,6 +23,8 @@ return [
         'https://urbannext.vercel.app',
         'http://localhost:3000',
         'http://127.0.0.1:3000',
+        'https://urbannext.up.railway.app',
+        'https://urbannnext.up.railway.app',
     ],
 
     'allowed_origins_patterns' => [
