@@ -278,17 +278,8 @@ class AdminController extends Controller
             'proof_of_delivery' => 'required|image|max:5120',
         ]);
 
-        // Delete old image if exists
-        if ($order->proof_of_delivery_image) {
-            $oldPath = str_replace('/storage/', '', $order->proof_of_delivery_image);
-            if (Storage::disk('public')->exists($oldPath)) {
-                Storage::disk('public')->delete($oldPath);
-            }
-        }
-
-        // Store new image
-        $path = $request->file('proof_of_delivery')->store('proof-of-delivery', 'public');
-        $imageUrl = '/storage/' . $path;
+        // Store new image to Cloudinary
+        $imageUrl = $request->file('proof_of_delivery')->storeOnCloudinary('proof-of-delivery')->getSecurePath();
 
         $order->update([
             'proof_of_delivery_image' => $imageUrl,
@@ -477,8 +468,7 @@ class AdminController extends Controller
         $sellerId = $validated['seller_id'] ?? $request->user()->id;
 
         if ($request->hasFile('image_file') && $request->file('image_file')->isValid()) {
-            $imagePath = $request->file('image_file')->store('product_images', 'public');
-            $validated['image'] = 'storage/' . $imagePath;
+            $validated['image'] = $request->file('image_file')->storeOnCloudinary('product_images')->getSecurePath();
         }
 
         $product = Product::create([
