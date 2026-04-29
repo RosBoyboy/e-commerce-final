@@ -192,6 +192,7 @@ export default function AdminDashboard() {
   const [productCreating, setProductCreating] = useState(false);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
+  const [imageUploadMode, setImageUploadMode] = useState('url');
   const [newProduct, setNewProduct] = useState({
     name: '',
     description: '',
@@ -723,7 +724,7 @@ export default function AdminDashboard() {
     }
 
     let payload;
-    if (imageFile) {
+    if (imageUploadMode === 'file' && imageFile) {
       const formData = new FormData();
       formData.append('name', name);
       formData.append('description', newProduct.description.trim() || '');
@@ -749,6 +750,9 @@ export default function AdminDashboard() {
         stock,
         category_id: targetCategoryId,
       };
+      if (imageUploadMode === 'url' && newProduct.image) {
+        payload.image = newProduct.image;
+      }
       if (Array.isArray(newProduct.sizes) && newProduct.sizes.length > 0) {
         payload.sizes = newProduct.sizes;
       }
@@ -2052,19 +2056,64 @@ export default function AdminDashboard() {
                       )}
                     </div>
                     <div className={styles.formGroup}>
-                      <label htmlFor="np-img" className={styles.adminLabel}>Product image</label>
-                      <input
-                        id="np-img"
-                        type="file"
-                        accept="image/*"
-                        onChange={handleProductImageChange}
-                      />
-                      {imagePreview && (
-                        <div className={styles.adminImagePreview}>
-                          <img
-                            src={imagePreview}
-                            alt="Selected product"
+                      <label className={styles.adminLabel}>Product image</label>
+                      <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.preventDefault(); setImageUploadMode('url'); }}
+                          style={{ flex: 1, padding: '8px', borderRadius: '6px', border: imageUploadMode === 'url' ? '2px solid #2563eb' : '1px solid #d1d5db', background: imageUploadMode === 'url' ? '#eff6ff' : '#fff', color: imageUploadMode === 'url' ? '#1d4ed8' : '#374151', fontWeight: 600, cursor: 'pointer' }}
+                        >
+                          Image URL
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.preventDefault(); setImageUploadMode('file'); }}
+                          style={{ flex: 1, padding: '8px', borderRadius: '6px', border: imageUploadMode === 'file' ? '2px solid #2563eb' : '1px solid #d1d5db', background: imageUploadMode === 'file' ? '#eff6ff' : '#fff', color: imageUploadMode === 'file' ? '#1d4ed8' : '#374151', fontWeight: 600, cursor: 'pointer' }}
+                        >
+                          Upload file
+                        </button>
+                      </div>
+
+                      {imageUploadMode === 'url' ? (
+                        <div>
+                          <label htmlFor="np-img-url" className={styles.adminLabel}>Paste image link</label>
+                          <input
+                            id="np-img-url"
+                            type="text"
+                            placeholder="https://..."
+                            value={newProduct.image || ''}
+                            onChange={(e) => setNewProduct(p => ({...p, image: e.target.value}))}
+                            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #d1d5db', marginBottom: '10px' }}
                           />
+                          <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>Optional. Enter a full image URL here.</p>
+                          {newProduct.image && (
+                            <div className={styles.adminImagePreview} style={{ marginTop: '15px' }}>
+                              <img src={newProduct.image} alt="Preview" onError={(e) => { e.target.src = 'https://placehold.co/240x240'; }} />
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div>
+                          <div style={{ border: '2px dashed #93c5fd', borderRadius: '8px', padding: '30px 20px', textAlign: 'center', background: '#eff6ff', cursor: 'pointer' }} onClick={() => document.getElementById('np-img-file').click()}>
+                            <div style={{ fontSize: '24px', color: '#3b82f6', marginBottom: '10px' }}>📸</div>
+                            <p style={{ margin: '0 0 5px 0', fontWeight: 600, color: '#1e3a8a' }}>Drop an image here or click to browse</p>
+                            <p style={{ margin: 0, fontSize: 12, color: '#64748b' }}>JPG, PNG, or WebP · max 5 MB</p>
+                            <input
+                              id="np-img-file"
+                              type="file"
+                              accept="image/*"
+                              style={{ display: 'none' }}
+                              onChange={(e) => {
+                                handleProductImageChange(e);
+                                e.stopPropagation();
+                              }}
+                            />
+                          </div>
+                          {imagePreview && (
+                            <div className={styles.adminImagePreview} style={{ marginTop: '15px' }}>
+                              <img src={imagePreview} alt="Selected product" />
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
