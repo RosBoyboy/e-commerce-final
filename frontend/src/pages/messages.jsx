@@ -10,7 +10,6 @@ import {
   fetchAdminRiders,
   assignAdminOrderRider,
 } from '@/services/api';
-import { useMessageUnread } from '@/context/MessageUnreadContext';
 import { useToast } from '@/components/ui/ToastProvider';
 import AdminMessagesLayout from '@/components/layout/AdminMessagesLayout';
 import CustomerShell from '@/components/layout/CustomerShell';
@@ -18,9 +17,12 @@ import styles from '@/styles/messages.module.scss';
 import dashStyles from '@/styles/dashboard.module.scss';
 import { getEcho, leaveEchoChannel } from '@/lib/echo';
 
-/** Slower polling when Laravel Echo + Pusher is configured (NEXT_PUBLIC_PUSHER_APP_KEY). */
-const LIST_POLL_MS = process.env.NEXT_PUBLIC_PUSHER_APP_KEY ? 12000 : 5000;
-const THREAD_POLL_MS = process.env.NEXT_PUBLIC_PUSHER_APP_KEY ? 12000 : 2200;
+/**
+ * Keep polling conservative because the API rate limit is 60 requests/minute per IP.
+ * The unread badge already has its own background refresh, so the page poll can be slower.
+ */
+const LIST_POLL_MS = process.env.NEXT_PUBLIC_PUSHER_APP_KEY ? 25000 : 20000;
+const THREAD_POLL_MS = process.env.NEXT_PUBLIC_PUSHER_APP_KEY ? 25000 : 15000;
 
 const QUICK_REPLIES = [
   { emoji: '🚚', text: 'Order picked up!' },
@@ -79,7 +81,6 @@ export default function Messages() {
   const conversationFetchAbortRef = useRef(null);
   const lastScrolledConvIdRef = useRef(null);
   const prevSelectedRef = useRef(null);
-  const { refreshUnread } = useMessageUnread();
 
   const loadConversations = useCallback(
     async (opts = {}) => {
@@ -122,16 +123,15 @@ export default function Messages() {
     }
     const bootstrap = async () => {
       await loadConversations();
-      await refreshUnread();
     };
     bootstrap();
     const listPoll = setInterval(() => {
       if (document.visibilityState !== 'visible') return;
-      loadConversations({ silent: true }).then(() => refreshUnread());
+      loadConversations({ silent: true });
     }, LIST_POLL_MS);
     const onVis = () => {
       if (document.visibilityState === 'visible') {
-        loadConversations({ silent: true }).then(() => refreshUnread());
+        loadConversations({ silent: true });
       }
     };
     document.addEventListener('visibilitychange', onVis);
@@ -141,7 +141,7 @@ export default function Messages() {
       document.removeEventListener('visibilitychange', onVis);
       window.removeEventListener('focus', onVis);
     };
-  }, [user?.id, user?.role?.name, authLoading, refreshUnread, loadConversations]);
+  }, [user?.id, user?.role?.name, authLoading, loadConversations]);
 
   const conversationIdFromQuery = router.query.conversation ? Number(router.query.conversation) : null;
   useEffect(() => {
@@ -195,10 +195,9 @@ export default function Messages() {
         if (!silent && id === selectedIdRef.current && !ac.signal.aborted) {
           setMessagesLoading(false);
         }
-        if (!ac.signal.aborted) refreshUnread();
       }
     },
-    [refreshUnread],
+    [],
   );
 
   useEffect(() => {
@@ -260,13 +259,12 @@ export default function Messages() {
       });
       setTimeout(() => scrollToBottom(), 50);
       loadConversations({ silent: true });
-      refreshUnread();
     });
 
     return () => {
       leaveEchoChannel(selectedId);
     };
-  }, [selectedId, user?.id, loadConversations, refreshUnread]);
+  }, [selectedId, user?.id, loadConversations]);
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -340,11 +338,7 @@ export default function Messages() {
   const showListOnMobile = !selectedId;
   const showThreadOnMobile = !!selectedId;
 
-  const threadMain = !canMessage ? (
-    <div className={styles.empty}>
-      <p>Messaging is available for customers and administrators only.</p>
-    </div>
-  ) : (
+  const threadMain = canMessage ? (
     <div
       className={`${styles.layout} ${user.role?.name === 'customer' ? styles.layoutEmbedded : styles.layoutPro}`}
     >
@@ -381,7 +375,9 @@ export default function Messages() {
                       </div>
                       <div className={styles.convMain}>
                         <div className={styles.convHeader}>
-                          <span className={styles.otherName}>{other?.name || 'Unknown'}</span>
+                          <span className={styles.otherName}>
+                            {isCustomerViewer ? 'urbanNxt' : (other?.name || 'Unknown')}
+                          </span>
                           {c.unread_count > 0 && (
                             <span className={styles.unreadBadge}>{c.unread_count}</span>
                           )}
@@ -391,9 +387,6 @@ export default function Messages() {
                             {c.last_message.is_mine ? 'You: ' : ''}
                             {c.last_message.body}
                           </p>
-                        )}
-                        {c.product && (
-                          <p className={styles.productLabel}>Re: {c.product.name}</p>
                         )}
                       </div>
                     </div>
@@ -410,14 +403,7 @@ export default function Messages() {
           showThreadOnMobile ? styles.mainActive : ''
         }`}
       >
-        {!selectedId ? (
-          <div className={styles.empty}>
-            <p>Select a conversation to open the chat.</p>
-            <p className={styles.mutedSmall}>
-              Or start from a product page using &quot;Message seller&quot;.
-            </p>
-          </div>
-        ) : (
+        {selectedId ? (
           <>
             {conversation && (
               <div className={styles.threadHeader}>
@@ -446,7 +432,7 @@ export default function Messages() {
                     <div className={styles.chattingWithTitle}>
                       <span className={styles.chattingWithLabel}>Chatting with:</span>{' '}
                       <span className={styles.chattingWithName}>
-                        {conversation.other_user?.name || 'Store'}
+                        {isCustomerViewer ? 'urbanNxt' : (conversation.other_user?.name || 'Store')}
                       </span>
                       {isCustomerViewer && (
                         <span className={styles.verifiedBadge}>
@@ -455,13 +441,11 @@ export default function Messages() {
                         </span>
                       )}
                     </div>
-                    {conversation.product && (
-                      <p className={styles.threadProduct}>Re: {conversation.product.name}</p>
-                    )}
                   </div>
                 </div>
               </div>
             )}
+
 
             {isAdmin && activeOrder && (
               <div className={styles.orderInfoBar} role="region" aria-label="Order info">
@@ -598,8 +582,19 @@ export default function Messages() {
               </button>
             </form>
           </>
+        ) : (
+          <div className={styles.empty}>
+            <p>Select a conversation to open the chat.</p>
+            <p className={styles.mutedSmall}>
+              Or start from a product page using &quot;Message seller&quot;.
+            </p>
+          </div>
         )}
       </main>
+    </div>
+  ) : (
+    <div className={styles.empty}>
+      <p>Messaging is available for customers and administrators only.</p>
     </div>
   );
 

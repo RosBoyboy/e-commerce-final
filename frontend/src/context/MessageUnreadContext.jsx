@@ -20,7 +20,7 @@ export function MessageUnreadProvider({ children }) {
       setUnreadCount(0);
       return;
     }
-    const role = user.role?.name;
+    const role = String(user.role?.name || '').toLowerCase();
     if (role !== 'customer' && role !== 'seller' && role !== 'admin') {
       setUnreadCount(0);
       return;
@@ -38,23 +38,28 @@ export function MessageUnreadProvider({ children }) {
       setUnreadCount(0);
       return;
     }
-    const role = user.role?.name;
+    const role = String(user.role?.name || '').toLowerCase();
     if (role !== 'customer' && role !== 'seller' && role !== 'admin') {
       setUnreadCount(0);
       return;
     }
 
     let cancelled = false;
-    const tick = () => {
-      fetchConversationsUnreadCount()
-        .then((res) => {
-          if (!cancelled) setUnreadCount(res.data?.unread_count ?? 0);
-        })
-        .catch(() => {});
+    let polling = true;
+    const tick = async () => {
+      if (!polling) return;
+      try {
+        const res = await fetchConversationsUnreadCount();
+        if (!cancelled) setUnreadCount(res.data?.unread_count ?? 0);
+      } catch (error) {
+        if (error?.response?.status === 429) {
+          polling = false;
+        }
+      }
     };
 
     tick();
-    const id = setInterval(tick, 5000);
+    const id = setInterval(tick, 30000);
 
     const onFocusOrVisible = () => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
@@ -66,6 +71,7 @@ export function MessageUnreadProvider({ children }) {
 
     return () => {
       cancelled = true;
+      polling = false;
       clearInterval(id);
       window.removeEventListener('focus', onFocusOrVisible);
       document.removeEventListener('visibilitychange', onFocusOrVisible);

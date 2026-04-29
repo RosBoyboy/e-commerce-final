@@ -31,7 +31,7 @@ export default function Login() {
 
     try {
       const response = await login(formData.email, formData.password);
-      const userRole = response.user?.role?.name;
+      const userRole = response.user?.role?.name?.toLowerCase();
       if (formData.remember) {
         try {
           localStorage.setItem('auth_remember_email', formData.email);

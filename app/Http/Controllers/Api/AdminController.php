@@ -11,6 +11,7 @@ use App\Models\Order;
 use App\Models\Rider;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class AdminController extends Controller
@@ -22,10 +23,10 @@ class AdminController extends Controller
         }
     }
 
-    private function ensureCustomerAccount(User $user): void
+    private function ensureManageableUserAccount(User $user): void
     {
-        if (!$user->hasRole('customer')) {
-            abort(422, 'Only customer accounts can be managed here.');
+        if ($user->hasRole('admin')) {
+            abort(422, 'Admin accounts cannot be archived or deleted.');
         }
     }
 
@@ -98,7 +99,7 @@ class AdminController extends Controller
     {
         $this->ensureAdmin($request);
         $user = User::findOrFail($id);
-        $this->ensureCustomerAccount($user);
+        $this->ensureManageableUserAccount($user);
         if ((int) $user->id === (int) $request->user()->id) {
             abort(422, 'Invalid operation.');
         }
@@ -164,6 +165,24 @@ class AdminController extends Controller
     public function riders(Request $request)
     {
         $this->ensureAdmin($request);
+
+        $riderUserIds = Rider::pluck('user_id')->all();
+        $missingRiders = User::whereHas('role', function ($query) {
+            $query->where('name', 'rider');
+        })
+            ->whereNotIn('id', $riderUserIds)
+            ->get();
+
+        foreach ($missingRiders as $missing) {
+            Rider::create([
+                'user_id' => $missing->id,
+                'phone' => $missing->phone,
+                'vehicle_plate' => '',
+                'address' => $missing->address ?? '',
+                'status' => 'available',
+            ]);
+        }
+
         $list = Rider::with('user:id,name,email')
             ->orderBy('id')
             ->get()
@@ -244,6 +263,45 @@ class AdminController extends Controller
     }
 
     /**
+     * Upload proof of delivery image for an order
+     */
+    public function uploadProofOfDelivery(Request $request, $id)
+    {
+        $this->ensureAdmin($request);
+        $order = Order::findOrFail($id);
+
+        if (!in_array(strtolower($order->status ?? ''), ['shipped', 'delivered'])) {
+            return response()->json(['message' => 'Can only upload proof for shipped or delivered orders.'], 422);
+        }
+
+        $validated = $request->validate([
+            'proof_of_delivery' => 'required|image|max:5120',
+        ]);
+
+        // Delete old image if exists
+        if ($order->proof_of_delivery_image) {
+            $oldPath = str_replace('/storage/', '', $order->proof_of_delivery_image);
+            if (Storage::disk('public')->exists($oldPath)) {
+                Storage::disk('public')->delete($oldPath);
+            }
+        }
+
+        // Store new image
+        $path = $request->file('proof_of_delivery')->store('proof-of-delivery', 'public');
+        $imageUrl = '/storage/' . $path;
+
+        $order->update([
+            'proof_of_delivery_image' => $imageUrl,
+            'proof_uploaded_at' => now(),
+        ]);
+
+        return response()->json([
+            'message' => 'Proof of delivery uploaded successfully.',
+            'order' => $order->fresh(['customer', 'items.product', 'rider.user']),
+        ], 200);
+    }
+
+    /**
      * Per-product stock, units sold (non-cancelled orders), line revenue, and store-wide sold totals.
      */
     public function inventoryReport(Request $request)
@@ -285,6 +343,7 @@ class AdminController extends Controller
             return [
                 'id' => $p->id,
                 'name' => $p->name,
+                'image' => $p->image,
                 'category' => $p->category ? $p->category->name : null,
                 'stock' => (int) $p->stock,
                 'unit_price' => round((float) $p->price, 2),
@@ -396,6 +455,7 @@ class AdminController extends Controller
             'stock' => 'required|integer|min:0',
             'category_id' => 'required|exists:categories,id',
             'image' => 'nullable|string',
+            'image_file' => 'nullable|image|max:5120',
             'seller_id' => 'nullable|exists:users,id',
             'is_active' => 'nullable|boolean',
             'sizes' => 'nullable|array',
@@ -415,6 +475,11 @@ class AdminController extends Controller
         }
 
         $sellerId = $validated['seller_id'] ?? $request->user()->id;
+
+        if ($request->hasFile('image_file') && $request->file('image_file')->isValid()) {
+            $imagePath = $request->file('image_file')->store('product_images', 'public');
+            $validated['image'] = 'storage/' . $imagePath;
+        }
 
         $product = Product::create([
             'name' => $validated['name'],
@@ -539,7 +604,6 @@ class AdminController extends Controller
         $this->ensureAdmin($request);
         $users = User::with('role')
             ->where('is_archived', true)
-            ->whereHas('role', fn ($q) => $q->where('name', 'customer'))
             ->orderBy('updated_at', 'desc')
             ->get();
 
@@ -550,27 +614,27 @@ class AdminController extends Controller
     {
         $this->ensureAdmin($request);
         $user = User::with('role')->findOrFail($id);
-        $this->ensureCustomerAccount($user);
+        $this->ensureManageableUserAccount($user);
         if ((int) $user->id === (int) $request->user()->id) {
             abort(422, 'You cannot archive your own account.');
         }
         $user->update(['is_archived' => true]);
         $user->tokens()->delete();
 
-        return response()->json(['message' => 'Customer archived.', 'user' => $user->fresh('role')], 200);
+        return response()->json(['message' => 'User archived.', 'user' => $user->fresh('role')], 200);
     }
 
     public function restoreUser(Request $request, $id)
     {
         $this->ensureAdmin($request);
         $user = User::with('role')->findOrFail($id);
-        $this->ensureCustomerAccount($user);
+        $this->ensureManageableUserAccount($user);
         if (!$user->is_archived) {
             abort(422, 'User is not archived.');
         }
         $user->update(['is_archived' => false]);
 
-        return response()->json(['message' => 'Customer restored.', 'user' => $user->fresh('role')], 200);
+        return response()->json(['message' => 'User restored.', 'user' => $user->fresh('role')], 200);
     }
 
     public function permanentDeleteUser(Request $request, $id)
@@ -589,14 +653,14 @@ class AdminController extends Controller
         $ids = array_values(array_filter($validated['ids'], fn ($i) => (int) $i !== $adminId));
         $users = User::with('role')->whereIn('id', $ids)->get();
         foreach ($users as $user) {
-            if (!$user->hasRole('customer')) {
+            if ($user->hasRole('admin')) {
                 continue;
             }
             $user->update(['is_archived' => true]);
             $user->tokens()->delete();
         }
 
-        return response()->json(['message' => 'Selected customers archived.'], 200);
+        return response()->json(['message' => 'Selected users archived.'], 200);
     }
 
     public function permanentDeleteUsersBatch(Request $request)
@@ -608,11 +672,11 @@ class AdminController extends Controller
         ]);
         $deleted = User::whereIn('id', $validated['ids'])
             ->where('is_archived', true)
-            ->whereHas('role', fn ($q) => $q->where('name', 'customer'))
+            ->whereHas('role', fn ($q) => $q->where('name', '!=', 'admin'))
             ->where('id', '!=', $request->user()->id)
             ->delete();
 
-        return response()->json(['message' => 'Archived customers permanently deleted.', 'deleted' => $deleted], 200);
+        return response()->json(['message' => 'Archived users permanently deleted.', 'deleted' => $deleted], 200);
     }
 
     /**

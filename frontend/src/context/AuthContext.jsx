@@ -8,6 +8,14 @@ import {
 } from '@/services/api';
 import { disconnectEcho } from '@/lib/echo';
 
+const normalizeUserRole = (user) => {
+  if (!user) return null;
+  return {
+    ...user,
+    role: user.role ? { ...user.role, name: user.role.name?.toLowerCase() } : user.role,
+  };
+};
+
 const AuthCtx = createContext({
   user: null,
   token: null,
@@ -46,7 +54,7 @@ export function AuthProvider({ children }) {
       }
       try {
         const { data } = await fetchCurrentUser();
-        setUser(data.user);
+        setUser(normalizeUserRole(data.user));
       } catch (error) {
         console.error('Failed to fetch user:', error);
         setToken(null);
@@ -63,7 +71,7 @@ export function AuthProvider({ children }) {
     const { data } = await loginRequest({ email, password });
     setAuthToken(data.token);
     setToken(data.token);
-    setUser(data.user);
+    setUser(normalizeUserRole(data.user));
     return data;
   };
 
@@ -92,7 +100,7 @@ export function AuthProvider({ children }) {
     const { data } = await registerRequest(payload);
     setAuthToken(data.token);
     setToken(data.token);
-    setUser(data.user);
+    setUser(normalizeUserRole(data.user));
     return data;
   };
 

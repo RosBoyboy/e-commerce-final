@@ -28,6 +28,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/orders', [OrderController::class, 'customerOrders']);
     Route::post('/orders', [OrderController::class, 'store']);
     Route::patch('/orders/{id}/status', [OrderController::class, 'updateStatus']);
+    Route::patch('/orders/{id}/cancel', [OrderController::class, 'cancelOrder']);
 
     Route::get('/cart', [CartController::class, 'index']);
     Route::post('/cart/items', [CartController::class, 'store']);
@@ -75,6 +76,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/inventory-report', [AdminController::class, 'inventoryReport']);
         Route::patch('/orders/{id}/status', [AdminController::class, 'updateOrderStatus']);
         Route::patch('/orders/{id}/assign-rider', [AdminController::class, 'assignOrderRider']);
+        Route::post('/orders/{id}/proof-of-delivery', [AdminController::class, 'uploadProofOfDelivery']);
 
         // Fleet riders (built-in accounts)
         Route::get('/riders', [AdminController::class, 'riders']);

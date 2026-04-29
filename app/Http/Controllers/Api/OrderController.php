@@ -154,40 +154,26 @@ class OrderController extends Controller
             return response()->json(['message' => 'Order cancelled.', 'order' => $order->fresh('items.product')], 200);
         }
 
-        // Allow customer to confirm receipt while shipped, or when already delivered but not yet acknowledged.
-        if (
-            $status === 'delivered'
-            && (
-                $current === 'shipped'
-                || ($current === 'delivered' && empty($order->received_by))
-            )
-        ) {
+        // Allow customer to confirm receipt only once the rider has already marked the parcel delivered.
+        if ($status === 'delivered') {
+            if ($current !== 'delivered' || !empty($order->received_by)) {
+                return response()->json(['message' => 'Delivery confirmation is not available yet. Please wait for the rider to complete delivery.'], 422);
+            }
+
             $receivedBy = trim((string) ($validated['received_by'] ?? ''));
             $customerFeedback = trim((string) ($validated['customer_feedback'] ?? ''));
-
-            // Send thank-you chat when confirming from shipped, OR when order was already "delivered"
-            // (e.g. rider marked delivered first) but receipt was not yet acknowledged.
-            $sendThankYouChat = ($current === 'shipped')
-                || ($current === 'delivered' && empty($order->received_by));
 
             DB::transaction(function () use (
                 $order,
                 $request,
                 $receivedBy,
-                $customerFeedback,
-                $sendThankYouChat
+                $customerFeedback
             ) {
                 $order->update([
-                    'status' => 'delivered',
-                    'payment_status' => 'paid',
                     'received_by' => $receivedBy !== '' ? $receivedBy : ($request->user()->name ?? null),
                     'received_at' => now(),
                     'customer_feedback' => $customerFeedback !== '' ? $customerFeedback : null,
                 ]);
-
-                if (!$sendThankYouChat) {
-                    return;
-                }
 
                 $order->loadMissing(['items.product', 'customer']);
                 $body = OrderChatService::bodyCustomerReceiptThankYou($order);
@@ -198,5 +184,39 @@ class OrderController extends Controller
         }
 
         return response()->json(['message' => 'Invalid status update.'], 422);
+    }
+
+    /**
+     * Customer cancels their own order (only if still pending/confirmed/processing).
+     */
+    public function cancelOrder(Request $request, $id)
+    {
+        $order = Order::with(['customer:id,name,email', 'items.product:id,name,image,slug'])
+            ->where('customer_id', $request->user()->id)
+            ->findOrFail($id);
+
+        $current = strtolower($order->status ?? 'pending');
+
+        // Customer can only cancel orders that haven't been shipped yet
+        if (!in_array($current, ['pending', 'confirmed', 'processing'], true)) {
+            return response()->json([
+                'message' => 'This order cannot be cancelled. Orders that have been shipped or completed cannot be cancelled.',
+            ], 422);
+        }
+
+        // Refund stock to products
+        DB::transaction(function () use ($order) {
+            foreach ($order->items as $item) {
+                if ($item->product_id) {
+                    Product::where('id', $item->product_id)->increment('stock', (int) ($item->quantity ?? 0));
+                }
+            }
+            $order->update(['status' => 'cancelled']);
+        });
+
+        return response()->json([
+            'message' => 'Order cancelled successfully. Stock has been returned.',
+            'order' => $order->fresh('items.product'),
+        ], 200);
     }
 }

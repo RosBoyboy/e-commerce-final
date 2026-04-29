@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -7,7 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useProtectedRoute } from '@/hooks/useProtectedRoute';
 import { useWishlist } from '@/context/WishlistContext';
 import { useCart, CartAddBlockedError } from '@/context/CartContext';
-import { fetchCustomerOrders, fetchProducts, updateOrderStatus } from '@/services/api';
+import { fetchCustomerOrders, fetchProducts, updateOrderStatus, cancelCustomerOrder } from '@/services/api';
 import { useToast } from '@/components/ui/ToastProvider';
 import { useMessageUnread } from '@/context/MessageUnreadContext';
 import { productImageUrl } from '@/utils/image';
@@ -60,6 +60,7 @@ export default function CustomerDashboard() {
   const [receiverComment, setReceiverComment] = useState('');
   const [updatingReceived, setUpdatingReceived] = useState(false);
   const [showReceiveSuccess, setShowReceiveSuccess] = useState(false);
+  const [cancelingOrderId, setCancelingOrderId] = useState(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({
     name: '',
@@ -82,11 +83,36 @@ export default function CustomerDashboard() {
     else setActiveTab('overview');
   }, [router.query.tab]);
 
+  const fetchOrders = useCallback(async () => {
+    setOrdersLoading(true);
+    try {
+      const { data } = await fetchCustomerOrders();
+      const nextOrders = data.orders || [];
+      setOrders(nextOrders);
+      setSelectedOrder((prev) => {
+        if (!prev) return prev;
+        return nextOrders.find((o) => o.id === prev.id) || prev;
+      });
+    } catch (error) {
+      console.error('Failed to fetch orders:', error);
+    } finally {
+      setOrdersLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (user && user.role?.name === 'customer') {
       fetchOrders();
     }
-  }, [user]);
+  }, [user, fetchOrders]);
+
+  useEffect(() => {
+    if (activeTab !== 'orders' || !user || user.role?.name !== 'customer') return undefined;
+    const intervalId = setInterval(() => {
+      fetchOrders();
+    }, 15000);
+    return () => clearInterval(intervalId);
+  }, [activeTab, user, fetchOrders]);
 
   useEffect(() => {
     if (activeTab === 'wishlist' && wishlistIds.length > 0) {
@@ -134,34 +160,17 @@ export default function CustomerDashboard() {
     }
   }, [activeTab]);
 
-  const fetchOrders = async () => {
-    setOrdersLoading(true);
-    try {
-      const { data } = await fetchCustomerOrders();
-      const nextOrders = data.orders || [];
-      setOrders(nextOrders);
-      setSelectedOrder((prev) => {
-        if (!prev) return prev;
-        return nextOrders.find((o) => o.id === prev.id) || prev;
-      });
-    } catch (error) {
-      console.error('Failed to fetch orders:', error);
-    } finally {
-      setOrdersLoading(false);
-    }
-  };
-
   const totalSpent = orders.reduce((sum, o) => sum + parseFloat(o.total_amount || 0), 0);
 
   const getOrderStatus = (order) => (order.status || '').toLowerCase();
   const isAwaitingReceipt = (order) => {
     const status = getOrderStatus(order);
-    return status === 'shipped' || (status === 'delivered' && !order.received_by);
+    return status === 'delivered' && !order.received_by;
   };
 
   const orderCounts = {
     all: orders.length,
-    toShip: orders.filter((o) => ['pending', 'confirmed', 'processing'].includes(getOrderStatus(o))).length,
+    toShip: orders.filter((o) => ['pending', 'confirmed', 'processing', 'shipped'].includes(getOrderStatus(o))).length,
     toReceive: orders.filter((o) => isAwaitingReceipt(o)).length,
     completed: orders.filter((o) => getOrderStatus(o) === 'delivered' && !!o.received_by).length,
     cancelled: orders.filter((o) => getOrderStatus(o) === 'cancelled').length,
@@ -184,8 +193,13 @@ export default function CustomerDashboard() {
     if (!confirm('Cancel this order? This cannot be undone.')) return;
     setCancellingId(order.id);
     try {
-      await updateOrderStatus(order.id, 'cancelled');
+      await cancelCustomerOrder(order.id);
       await fetchOrders();
+      showToast({
+        message: 'Order cancelled successfully.',
+        type: 'success',
+      });
+      setSelectedOrder(null);
     } catch (err) {
       console.error(err);
       showToast({
@@ -1027,6 +1041,17 @@ export default function CustomerDashboard() {
               >
                 Close
               </button>
+              {selectedOrder && ['pending', 'confirmed', 'processing'].includes((selectedOrder.status || '').toLowerCase()) && (
+                <button
+                  type="button"
+                  className={styles.adminBtnDeleteSoft}
+                  disabled={cancellingId === selectedOrder.id}
+                  onClick={() => handleCancelOrder(selectedOrder)}
+                  title="Cancel this order"
+                >
+                  {cancellingId === selectedOrder.id ? 'Cancelling…' : 'Cancel order'}
+                </button>
+              )}
             </div>
           </div>
         </div>

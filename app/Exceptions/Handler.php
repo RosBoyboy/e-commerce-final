@@ -2,8 +2,10 @@
 
 namespace App\Exceptions;
 
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Illuminate\Http\Request;
+use PDOException;
 use Throwable;
 
 class Handler extends ExceptionHandler
@@ -50,6 +52,12 @@ class Handler extends ExceptionHandler
 
     public function render($request, Throwable $e)
     {
+        if ($request->is('api/*') && $this->isDatabaseConnectionException($e)) {
+            return response()->json([
+                'message' => 'Cannot connect to the database. Please start MySQL and verify your DB settings in .env.',
+            ], 500);
+        }
+
         $response = parent::render($request, $e);
         if ($request->is('api/*') && method_exists($response, 'header')) {
             $origin = $request->header('Origin');
@@ -66,5 +74,17 @@ class Handler extends ExceptionHandler
             }
         }
         return $response;
+    }
+
+    protected function isDatabaseConnectionException(Throwable $e): bool
+    {
+        $current = $e;
+        while ($current) {
+            if ($current instanceof PDOException || $current instanceof QueryException) {
+                return true;
+            }
+            $current = $current->getPrevious();
+        }
+        return false;
     }
 }

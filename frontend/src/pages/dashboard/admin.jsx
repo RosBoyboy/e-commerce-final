@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import Head from 'next/head';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/context/AuthContext';
 import { useProtectedRoute } from '@/hooks/useProtectedRoute';
@@ -25,10 +26,12 @@ import {
   updateAdminRider,
   archiveAdminProduct,
   archiveAdminUser,
+  deleteAdminUser,
   restoreAdminProduct,
   restoreAdminUser,
   archiveAdminProductsBatch,
   archiveAdminUsersBatch,
+  uploadProofOfDelivery,
 } from '@/services/api';
 import AdminShell from '@/components/layout/AdminShell';
 import { productImageUrl } from '@/utils/image';
@@ -48,6 +51,7 @@ import {
   AlertCircle,
   Archive,
   BadgeCheck,
+  Bell,
   Bike,
   MapPin,
   PackageSearch,
@@ -55,10 +59,13 @@ import {
   RefreshCw,
   RotateCcw,
   Search,
+  ShoppingCart,
+  Link as LinkIcon,
   TrendingUp,
   Truck,
   Users,
   X,
+  CreditCard,
 } from 'lucide-react';
 import styles from '@/styles/dashboard.module.scss';
 import { PRODUCT_SIZE_OPTIONS } from '@/constants/commerce';
@@ -70,6 +77,12 @@ function formatAdminSizesSummary(selected) {
   if (joined.length > 52) return `${joined.slice(0, 50)}…`;
   return joined;
 }
+
+const FALLBACK_CATEGORIES = [
+  'Men',
+  'Women',
+  'Kids',
+];
 
 function formatAdminDateTime(iso) {
   if (!iso) return '';
@@ -138,6 +151,7 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [activeTab, setActiveTab] = useState('overview');
   const [dataLoading, setDataLoading] = useState(false);
+  const [dashboardLoaded, setDashboardLoaded] = useState(false);
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -150,6 +164,10 @@ export default function AdminDashboard() {
   /** @type {'all' | 'pending' | 'live' | 'rejected'} */
   const [productsScopeTab, setProductsScopeTab] = useState('all');
   const [productApprovalLoadingId, setProductApprovalLoadingId] = useState(null);
+  const [selectedProductForModal, setSelectedProductForModal] = useState(null);
+  const [showProductDetailsModal, setShowProductDetailsModal] = useState(false);
+  const [proofOfDeliveryFile, setProofOfDeliveryFile] = useState(null);
+  const [uploadingProofOfDelivery, setUploadingProofOfDelivery] = useState(false);
   const [inventoryRows, setInventoryRows] = useState([]);
   const [inventoryTotals, setInventoryTotals] = useState({ total_units_sold: 0, total_sales_amount: 0 });
   const [inventoryLoading, setInventoryLoading] = useState(false);
@@ -172,6 +190,8 @@ export default function AdminDashboard() {
   const [categoryCreating, setCategoryCreating] = useState(false);
   const [addProductOpen, setAddProductOpen] = useState(false);
   const [productCreating, setProductCreating] = useState(false);
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState('');
   const [newProduct, setNewProduct] = useState({
     name: '',
     description: '',
@@ -208,10 +228,60 @@ export default function AdminDashboard() {
   const [initialSettings, setInitialSettings] = useState(null);
 
   useEffect(() => {
-    if (user && user.role.name === 'admin') {
+    if (!user || user.role?.name?.toLowerCase() !== 'admin') return;
+    if (dashboardLoaded || dataLoading) return;
+
+    fetchDashboardData();
+  }, [user?.id, user?.role?.name, dashboardLoaded, dataLoading]);
+
+  useEffect(() => {
+    if (!user || user.role?.name?.toLowerCase() !== 'admin' || activeTab !== 'orders') return undefined;
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const res = await fetchAdminOrders();
+        if (!cancelled) {
+          setOrders(res.data.orders || []);
+        }
+      } catch (error) {
+        console.error('Failed to refresh admin orders:', error);
+      }
+    };
+
+    const intervalId = setInterval(refresh, 15000);
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [activeTab, user?.id, user?.role?.name]);
+
+  useEffect(() => {
+    if (!user || user.role?.name?.toLowerCase() !== 'admin') return undefined;
+    if (!['overview', 'orders'].includes(activeTab)) return undefined;
+    const intervalId = setInterval(() => {
       fetchDashboardData();
-    }
-  }, [user]);
+    }, 20000);
+    return () => clearInterval(intervalId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, user?.id, user?.role?.name]);
+
+  useEffect(() => {
+    if (!addProductOpen || categories.length > 0) return undefined;
+    let cancelled = false;
+    fetchAdminCategories()
+      .then((res) => {
+        if (!cancelled) {
+          setCategories(res.data.categories || []);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (cancelled) return;
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [addProductOpen, categories.length]);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -228,10 +298,10 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (!user) return;
-    setSettings((prev) => {
-      const next = { ...prev, supportEmail: prev.supportEmail || user.email || '' };
-      return next;
-    });
+    setSettings((prev) => ({
+      ...prev,
+      supportEmail: prev.supportEmail || user.email || '',
+    }));
   }, [user]);
 
   useEffect(() => {
@@ -242,7 +312,7 @@ export default function AdminDashboard() {
   }, [initialSettings]);
 
   useEffect(() => {
-    if (activeTab !== 'inventory' || !user || user.role?.name !== 'admin') return undefined;
+    if (activeTab !== 'inventory' || !user || String(user.role?.name || '').toLowerCase() !== 'admin') return undefined;
     let cancelled = false;
     setInventoryLoading(true);
     fetchAdminInventoryReport()
@@ -266,7 +336,7 @@ export default function AdminDashboard() {
   }, [activeTab, user]);
 
   useEffect(() => {
-    if (activeTab !== 'settings' || settingsTab !== 'archive' || !user || user.role?.name !== 'admin') {
+    if (activeTab !== 'settings' || settingsTab !== 'archive' || !user || String(user.role?.name || '').toLowerCase() !== 'admin') {
       return undefined;
     }
     let cancelled = false;
@@ -339,10 +409,18 @@ export default function AdminDashboard() {
         setSettings(mapped);
         setInitialSettings(mapped);
       }
+      setDashboardLoaded(true);
     } catch (error) {
+      if (error?.response?.status === 429) {
+        showToast({
+          message: 'Too many requests. Please wait a moment and refresh the page.',
+          type: 'error',
+        });
+      }
       console.error('Failed to fetch dashboard data:', error);
     } finally {
       setDataLoading(false);
+      setDashboardLoaded(true);
     }
   };
 
@@ -403,6 +481,8 @@ export default function AdminDashboard() {
       const refreshed = await fetchAdminProducts();
       setProducts(refreshed.data.products || []);
       showToast({ message: 'Product published to the store.', type: 'success' });
+      setShowProductDetailsModal(false);
+      setSelectedProductForModal(null);
     } catch (e) {
       showToast({
         message: e.response?.data?.message || e.message || 'Could not publish product.',
@@ -420,6 +500,8 @@ export default function AdminDashboard() {
       const refreshed = await fetchAdminProducts();
       setProducts(refreshed.data.products || []);
       showToast({ message: 'Product rejected.', type: 'success' });
+      setShowProductDetailsModal(false);
+      setSelectedProductForModal(null);
     } catch (e) {
       showToast({
         message: e.response?.data?.message || e.message || 'Could not reject product.',
@@ -448,9 +530,15 @@ export default function AdminDashboard() {
         const refreshed = await fetchAdminUsers();
         setUsers(refreshed.data.users || []);
         setSelectedCustomerIds((prev) => prev.filter((x) => x !== d.id));
-        showToast({ message: 'Customer archived.', type: 'success' });
+        showToast({ message: 'User archived.', type: 'success' });
         const ur = await fetchAdminArchivedUsers();
         setArchivedUsers(ur.data?.users || []);
+      } else if (d.mode === 'delete-archived-user') {
+        await deleteAdminUser(d.id);
+        const refreshed = await fetchAdminArchivedUsers();
+        setArchivedUsers(refreshed.data.users || []);
+        setSelectedArchivedCustomerIds((prev) => prev.filter((x) => x !== d.id));
+        showToast({ message: 'User permanently deleted.', type: 'success' });
       } else if (d.mode === 'batch-archive-products') {
         await archiveAdminProductsBatch(d.ids);
         const refreshed = await fetchAdminProducts();
@@ -464,7 +552,7 @@ export default function AdminDashboard() {
         const refreshed = await fetchAdminUsers();
         setUsers(refreshed.data.users || []);
         setSelectedCustomerIds([]);
-        showToast({ message: 'Selected customers archived.', type: 'success' });
+        showToast({ message: 'Selected users archived.', type: 'success' });
         const ur = await fetchAdminArchivedUsers();
         setArchivedUsers(ur.data?.users || []);
       }
@@ -503,10 +591,14 @@ export default function AdminDashboard() {
       setArchivedUsers(ur.data?.users || []);
       setUsers(main.data?.users || []);
       setSelectedArchivedCustomerIds((prev) => prev.filter((x) => x !== id));
-      showToast({ message: 'Customer restored.', type: 'success' });
+      showToast({ message: 'User restored.', type: 'success' });
     } catch (e) {
-      alert(e.response?.data?.message || e.message || 'Failed to restore customer.');
+      alert(e.response?.data?.message || e.message || 'Failed to restore user.');
     }
+  };
+
+  const handlePermanentDeleteUser = (id) => {
+    setConfirmDialog({ mode: 'delete-archived-user', id });
   };
 
   const handleBatchRestoreArchivedProducts = async () => {
@@ -531,9 +623,9 @@ export default function AdminDashboard() {
       const [ur, main] = await Promise.all([fetchAdminArchivedUsers(), fetchAdminUsers()]);
       setArchivedUsers(ur.data?.users || []);
       setUsers(main.data?.users || []);
-      showToast({ message: 'Customers restored.', type: 'success' });
+      showToast({ message: 'Users restored.', type: 'success' });
     } catch (e) {
-      alert(e.response?.data?.message || e.message || 'Failed to restore customers.');
+      alert(e.response?.data?.message || e.message || 'Failed to restore users.');
     }
   };
 
@@ -566,25 +658,38 @@ export default function AdminDashboard() {
     }
   };
 
-  const resetNewProductForm = () => setNewProduct({
-    name: '',
-    description: '',
-    price: '',
-    stock: '',
-    category_id: '',
-    image: '',
-    sizes: [],
-    sales_cap_quantity: '',
-    sales_cap_period: '',
-  });
+  const resetNewProductForm = () => {
+    setNewProduct({
+      name: '',
+      description: '',
+      price: '',
+      stock: '',
+      category_id: '',
+      image: '',
+      sizes: [],
+      sales_cap_quantity: '',
+      sales_cap_period: '',
+    });
+    setImageFile(null);
+    setImagePreview('');
+  };
+
+  const handleProductImageChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
 
   const handleCreateProduct = async (e) => {
     e.preventDefault();
     const name = newProduct.name.trim();
-    const categoryId = parseInt(String(newProduct.category_id), 10);
+    const categoryValue = String(newProduct.category_id || '').trim();
+    const categoryId = parseInt(categoryValue, 10);
     const price = parseFloat(String(newProduct.price));
     const stock = parseInt(String(newProduct.stock), 10);
-    if (!name || !categoryId) {
+    if (!name || !categoryValue) {
       showToast({ message: 'Name and category are required.', type: 'error' });
       return;
     }
@@ -596,17 +701,63 @@ export default function AdminDashboard() {
       showToast({ message: 'Enter a valid stock quantity.', type: 'error' });
       return;
     }
-    const payload = {
-      name,
-      description: newProduct.description.trim() || undefined,
-      price,
-      stock,
-      category_id: categoryId,
-    };
-    const img = newProduct.image.trim();
-    if (img) payload.image = img;
-    if (Array.isArray(newProduct.sizes) && newProduct.sizes.length > 0) {
-      payload.sizes = newProduct.sizes;
+    let targetCategoryId = categoryId;
+    if (Number.isNaN(targetCategoryId)) {
+      const categoryName = categoryValue;
+      const existing = categories.find((c) => String(c.name).toLowerCase() === categoryName.toLowerCase());
+      if (existing) {
+        targetCategoryId = existing.id;
+      } else if (categoryName) {
+        const created = await createAdminCategory({ name: categoryName });
+        const newCategory = created.data?.category;
+        if (newCategory?.id) {
+          targetCategoryId = newCategory.id;
+          setCategories((prev) => [...prev, newCategory]);
+        }
+      }
+    }
+
+    if (!targetCategoryId) {
+      showToast({ message: 'Name and category are required.', type: 'error' });
+      return;
+    }
+
+    let payload;
+    if (imageFile) {
+      const formData = new FormData();
+      formData.append('name', name);
+      formData.append('description', newProduct.description.trim() || '');
+      formData.append('price', String(price));
+      formData.append('stock', String(stock));
+      formData.append('category_id', String(targetCategoryId));
+      formData.append('image_file', imageFile);
+      if (Array.isArray(newProduct.sizes) && newProduct.sizes.length > 0) {
+        newProduct.sizes.forEach((size) => formData.append('sizes[]', size));
+      }
+      if (newProduct.sales_cap_quantity) {
+        formData.append('sales_cap_quantity', String(newProduct.sales_cap_quantity));
+      }
+      if (newProduct.sales_cap_period) {
+        formData.append('sales_cap_period', newProduct.sales_cap_period);
+      }
+      payload = formData;
+    } else {
+      payload = {
+        name,
+        description: newProduct.description.trim() || undefined,
+        price,
+        stock,
+        category_id: targetCategoryId,
+      };
+      if (Array.isArray(newProduct.sizes) && newProduct.sizes.length > 0) {
+        payload.sizes = newProduct.sizes;
+      }
+      if (newProduct.sales_cap_quantity) {
+        payload.sales_cap_quantity = parseInt(String(newProduct.sales_cap_quantity), 10);
+      }
+      if (newProduct.sales_cap_period) {
+        payload.sales_cap_period = newProduct.sales_cap_period;
+      }
     }
     const capQtyRaw = String(newProduct.sales_cap_quantity || '').trim();
     const capPeriod = newProduct.sales_cap_period;
@@ -649,6 +800,24 @@ export default function AdminDashboard() {
 
   const updateSetting = (key, value) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleUploadProofOfDelivery = async () => {
+    if (!proofOfDeliveryFile || !selectedOrder) return;
+    setUploadingProofOfDelivery(true);
+    try {
+      const res = await uploadProofOfDelivery(selectedOrder.id, proofOfDeliveryFile);
+      setSelectedOrder(res.data.order);
+      setProofOfDeliveryFile(null);
+      showToast({ message: 'Proof of delivery uploaded successfully.', type: 'success' });
+    } catch (e) {
+      showToast({
+        message: e.response?.data?.message || e.message || 'Failed to upload proof of delivery.',
+        type: 'error',
+      });
+    } finally {
+      setUploadingProofOfDelivery(false);
+    }
   };
 
   const handleLogoUpload = (file) => {
@@ -829,10 +998,7 @@ export default function AdminDashboard() {
     return c;
   }, [orders]);
 
-  const customerUsers = useMemo(
-    () => (users || []).filter((u) => u.role?.name === 'customer'),
-    [users],
-  );
+  const customerUsers = useMemo(() => users || [], [users]);
 
   const filteredProducts = useMemo(() => {
     const q = productsSearch.trim().toLowerCase();
@@ -879,6 +1045,13 @@ export default function AdminDashboard() {
       || String(c.slug || '').toLowerCase().includes(q)
     ));
   }, [categories, categoriesSearch]);
+
+  const categorySuggestions = useMemo(() => {
+    const existingNames = new Set((categories || []).map((c) => String(c.name || '').toLowerCase()));
+    return FALLBACK_CATEGORIES.filter((name) => !existingNames.has(name.toLowerCase()));
+  }, [categories]);
+
+  const isProtectedAdminAccount = (userRecord) => String(userRecord?.role?.name || '').toLowerCase() === 'admin';
 
   const filteredArchivedProducts = useMemo(() => {
     const q = archiveProductsSearch.trim().toLowerCase();
@@ -940,10 +1113,12 @@ export default function AdminDashboard() {
         return 'Are you sure you really want to archive this product?';
       case 'archive-user':
         return 'Are you sure you really want to archive this user?';
+      case 'delete-archived-user':
+        return 'Are you sure you really want to permanently delete this archived user? This cannot be undone.';
       case 'batch-archive-products':
         return `Are you sure you really want to archive ${ids?.length ?? 0} selected product(s)?`;
       case 'batch-archive-customers':
-        return `Are you sure you really want to archive ${ids?.length ?? 0} selected customer(s)?`;
+        return `Are you sure you really want to archive ${ids?.length ?? 0} selected user(s)?`;
       default:
         return '';
     }
@@ -964,183 +1139,151 @@ export default function AdminDashboard() {
       </Head>
       <div className={`${styles.adminProShell} ${styles.adminPro}`}>
         <AdminShell activeTab={activeTab} onTabChange={setTab} onLogout={handleLogout}>
-          <div className={`${styles.pageHeading} ${activeTab === 'orders' ? styles.adminOrdersPageHeading : ''}`}>
-            <h1 className={activeTab === 'orders' ? styles.adminOrdersHeroTitle : undefined}>
-              {activeTab === 'overview'
-                ? 'Overview'
-                : activeTab === 'orders'
-                ? 'Orders'
-                : activeTab === 'products'
-                ? 'Products'
-                : activeTab === 'inventory'
-                ? 'Inventory'
-                : activeTab === 'categories'
-                ? 'Categories'
-                : activeTab === 'customers'
-                ? 'Customers'
-                : activeTab === 'analytics'
-                ? 'Analytics'
-                : 'Settings'}
-            </h1>
-            <p className={styles.subtitle}>
-              {activeTab === 'overview' && "Welcome back, Admin. Here's what's happening today."}
-              {activeTab === 'orders' && 'View and manage all customer orders in one place.'}
-              {activeTab === 'products' && 'Add products (they stay pending until you publish), manage stock, and categories.'}
-              {activeTab === 'inventory' && 'Stock on hand, units sold, and revenue per product (non-cancelled orders).'}
-              {activeTab === 'categories' && 'Manage categories for your storefront.'}
-              {activeTab === 'customers' && 'See customer details, status, and value.'}
-              {activeTab === 'analytics' && 'Overview of your store performance.'}
-              {activeTab === 'settings' && settingsTab === 'archive' && 'Archive & recovery: restore archived products and customers when needed.'}
-              {activeTab === 'settings' && settingsTab === 'riders' && 'Manage built-in delivery riders: names, phone, and plate numbers.'}
-              {activeTab === 'settings' && settingsTab !== 'archive' && settingsTab !== 'riders' && 'Manage store preferences and system settings.'}
-            </p>
+          <div className={`${activeTab === 'overview' ? styles.imgPageHeading : styles.pageHeading} ${activeTab === 'orders' ? styles.adminOrdersPageHeading : ''}`}>
+            <div>
+              <h1 className={activeTab === 'orders' ? styles.adminOrdersHeroTitle : undefined}>
+                {activeTab === 'overview'
+                  ? 'Overview'
+                  : activeTab === 'orders'
+                  ? 'Orders'
+                  : activeTab === 'products'
+                  ? 'Products'
+                  : activeTab === 'inventory'
+                  ? 'Inventory'
+                  : activeTab === 'categories'
+                  ? 'Categories'
+                  : activeTab === 'customers'
+                    ? 'Users'
+                  : activeTab === 'analytics'
+                  ? 'Analytics'
+                  : 'Settings'}
+              </h1>
+              <p className={styles.subtitle}>
+                {activeTab === 'overview' && `Welcome back, Admin - ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}`}
+                {activeTab === 'orders' && 'View and manage all customer orders in one place.'}
+                {activeTab === 'products' && 'Add products (they stay pending until you publish), manage stock, and categories.'}
+                {activeTab === 'inventory' && 'Stock on hand, units sold, and revenue per product (non-cancelled orders).'}
+                {activeTab === 'categories' && 'Manage categories for your storefront.'}
+                {activeTab === 'customers' && 'See all user details, status, and value.'}
+                {activeTab === 'analytics' && 'Overview of your store performance.'}
+                {activeTab === 'settings' && settingsTab === 'archive' && 'Archive & recovery: restore archived products and users when needed.'}
+                {activeTab === 'settings' && settingsTab === 'riders' && 'Manage built-in delivery riders: names, phone, and plate numbers.'}
+                {activeTab === 'settings' && settingsTab !== 'archive' && settingsTab !== 'riders' && 'Manage store preferences and system settings.'}
+              </p>
+            </div>
+            {activeTab === 'overview' && (
+              <div className={styles.imgHeadingRight}>
+                <button type="button" className={styles.imgBell} aria-label="Notifications">
+                  <Bell size={18} strokeWidth={2} />
+                </button>
+                <div className={styles.imgAvatar}>AD</div>
+              </div>
+            )}
           </div>
 
           <div className={styles.mainPro}>
             {activeTab === 'overview' && (
               <>
-                <div className={styles.adminStatsGrid}>
-                  <div className={`${styles.adminStatCard} ${styles.adminStatSales}`}>
-                    <div className={styles.adminStatTop}>
-                      <div className={styles.adminStatIcon} aria-hidden>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="2" y="5" width="20" height="14" rx="2" />
-                          <line x1="2" y1="10" x2="22" y2="10" />
-                        </svg>
+                <div className={styles.imgStatsGrid}>
+                  <div className={`${styles.imgStatCard} ${styles.borderBlue}`}>
+                    <div className={styles.imgStatTop}>
+                      <div className={styles.imgStatIcon}>
+                        <LinkIcon size={18} strokeWidth={2.5} />
                       </div>
-                      <div className={styles.adminStatSpark}>
-                        <ResponsiveContainer width="100%" height={34}>
-                          <LineChart data={sparkRevenue}>
-                            <Line type="monotone" dataKey="v" stroke="#ffffff" strokeWidth={2} dot={false} />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      </div>
+                      <div className={styles.imgStatPill}>↑ 12.4%</div>
                     </div>
-                    <div className={styles.adminStatValue}>₱{totalSales.toLocaleString('en-PH', { minimumFractionDigits: 2 })} <TrendingUp size={16} strokeWidth={1.5} className={styles.adminStatTrendIcon} aria-hidden /></div>
-                    <div className={styles.adminStatLabel}>Total Sales</div>
-                    <div className={styles.adminStatMeta}>Last 30 days</div>
+                    <div className={styles.imgStatValue}>₱{totalSales.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</div>
+                    <div className={styles.imgStatLabel}>Total Sales</div>
+                    <div className={styles.imgStatMeta}>Last 30 days</div>
                   </div>
-                  <div className={`${styles.adminStatCard} ${styles.adminStatOrders}`}>
-                    <div className={styles.adminStatTop}>
-                      <div className={styles.adminStatIcon} aria-hidden>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M6 2h12l2 7H4l2-7Z" />
-                          <path d="M4 9h16v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9Z" />
-                        </svg>
+                  
+                  <div className={`${styles.imgStatCard} ${styles.borderGreen}`}>
+                    <div className={styles.imgStatTop}>
+                      <div className={styles.imgStatIcon}>
+                        <ShoppingCart size={18} strokeWidth={2.5} />
                       </div>
-                      <div className={styles.adminStatSpark}>
-                        <ResponsiveContainer width="100%" height={34}>
-                          <LineChart data={sparkOrders}>
-                            <Line type="monotone" dataKey="v" stroke="#ffffff" strokeWidth={2} dot={false} />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      </div>
+                      <div className={styles.imgStatPill}>↑ 12.4%</div>
                     </div>
-                    <div className={styles.adminStatValue}>{totalOrders} <TrendingUp size={16} strokeWidth={1.5} className={styles.adminStatTrendIcon} aria-hidden /></div>
-                    <div className={styles.adminStatLabel}>New Orders</div>
-                    <div className={styles.adminStatMeta}>Last 30 days</div>
+                    <div className={styles.imgStatValue}>{totalOrders}</div>
+                    <div className={styles.imgStatLabel}>New Orders</div>
+                    <div className={styles.imgStatMeta}>Last 30 days</div>
                   </div>
-                  <div className={`${styles.adminStatCard} ${styles.adminStatUsers}`}>
-                    <div className={styles.adminStatTop}>
-                      <div className={styles.adminStatIcon} aria-hidden>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M18 20a6 6 0 0 0-12 0" />
-                          <circle cx="12" cy="10" r="4" />
-                          <circle cx="19" cy="9" r="2" />
-                          <path d="M21 20c0-2-1-3.5-2.5-4.5" />
-                        </svg>
+
+                  <div className={`${styles.imgStatCard} ${styles.borderPurple}`}>
+                    <div className={styles.imgStatTop}>
+                      <div className={styles.imgStatIcon}>
+                        <Users size={18} strokeWidth={2.5} />
                       </div>
-                      <div className={styles.adminStatSpark} />
+                      <div className={styles.imgStatPill}>↑ 12.4%</div>
                     </div>
-                    <div className={styles.adminStatValue}>{totalUsers} <TrendingUp size={16} strokeWidth={1.5} className={styles.adminStatTrendIcon} aria-hidden /></div>
-                    <div className={styles.adminStatLabel}>Total Users</div>
-                    <div className={styles.adminStatMeta}>All time</div>
+                    <div className={styles.imgStatValue}>{totalUsers}</div>
+                    <div className={styles.imgStatLabel}>Total Users</div>
+                    <div className={styles.imgStatMeta}>All time</div>
                   </div>
                 </div>
 
-                <div className={styles.card}>
-                  <div className={styles.cardHeader}>
-                    <h2>Sales Performance</h2>
-                    <button type="button" className={styles.secondaryBtn}>
-                      Last 30 Days
-                    </button>
-                  </div>
-                  <div
-                    className={styles.cardBody}
-                    style={{
-                      minHeight: 260,
-                    }}
-                  >
-                    <div style={{ width: '100%', height: 260 }}>
+                <div className={styles.imgOverviewGrid}>
+                  <div className={styles.imgCard}>
+                    <div className={styles.imgCardHeader}>
+                      <h2>Sales Performance</h2>
+                      <div className={styles.imgFilters}>
+                        <button type="button">7D</button>
+                        <button type="button" className={styles.active}>30D</button>
+                        <button type="button">90D</button>
+                      </div>
+                    </div>
+                    <div style={{ height: 260 }}>
                       <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={revenueSeries}>
-                          <defs>
-                            <linearGradient id="rev" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#4f46e5" stopOpacity={0.35} />
-                              <stop offset="100%" stopColor="#4f46e5" stopOpacity={0.02} />
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(15,23,42,0.08)" />
-                          <XAxis dataKey="date" tickFormatter={(v) => v.slice(5)} tick={{ fontSize: 12, fill: '#6b7280' }} />
-                          <YAxis tick={{ fontSize: 12, fill: '#6b7280' }} tickFormatter={(v) => `₱${v}`} width={52} />
+                        <LineChart data={revenueSeries} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                          <XAxis dataKey="date" tickFormatter={(v) => v.slice(5)} tick={{ fontSize: 12, fill: '#9CA3AF' }} tickLine={false} axisLine={false} />
+                          <YAxis tick={{ fontSize: 12, fill: '#9CA3AF' }} tickFormatter={(v) => `₱${v >= 1000 ? (v/1000).toFixed(1)+'k' : v}`} width={50} tickLine={false} axisLine={false} />
                           <Tooltip formatter={(v) => [`₱${Number(v).toFixed(2)}`, 'Revenue']} />
-                          <Area type="monotone" dataKey="revenue" stroke="#4f46e5" strokeWidth={2} fill="url(#rev)" />
-                        </AreaChart>
+                          <Line type="monotone" dataKey="revenue" stroke="#3B82F6" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                        </LineChart>
                       </ResponsiveContainer>
                     </div>
                   </div>
-                </div>
 
-                <div className={styles.card}>
-                  <div className={styles.cardHeader}>
-                    <h2>Recent Orders</h2>
-                  </div>
-                  <div className={styles.cardBody}>
-                    <div className={styles.adminTableSearchRow}>
-                      <div className={styles.adminSearchWrap}>
-                        <Search size={20} strokeWidth={1.5} aria-hidden />
-                        <input
-                          type="search"
-                          value={overviewOrdersSearch}
-                          onChange={(e) => setOverviewOrdersSearch(e.target.value)}
-                          placeholder="Search recent orders…"
-                        />
-                      </div>
+                  <div className={styles.imgCard}>
+                    <div className={styles.imgCardHeader}>
+                      <h2>Recent Orders</h2>
+                      <Link href="/dashboard/admin?tab=orders" className={styles.imgViewAll}>View all →</Link>
                     </div>
-                    {dataLoading ? (
-                      <p>Loading…</p>
-                    ) : overviewFilteredOrders.length === 0 ? (
-                      <p className={styles.emptyState}>No orders yet.</p>
-                    ) : (
-                      <div className={styles.usersTable}>
-                        <table>
-                          <thead>
-                            <tr>
-                              <th>Order</th>
-                              <th>Customer</th>
-                              <th>Status</th>
-                              <th>Total</th>
-                              <th>Date</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {overviewFilteredOrders.slice(0, 6).map((o) => (
-                              <tr key={o.id}>
-                                <td>#{o.order_number || o.id}</td>
-                                <td>{o.customer?.name || '-'}</td>
-                                <td>
-                                  <span className={`${styles.adminStatusPill} ${statusPillClass(o.status)}`}>
-                                    {formatOrderStatusLabel(o.status)}
-                                  </span>
-                                </td>
-                                <td>₱{Number(o.total_amount || 0).toFixed(2)}</td>
-                                <td>{o.created_at ? new Date(o.created_at).toLocaleDateString() : ''}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
+                    <div className={styles.imgOrderList}>
+                      {dataLoading ? (
+                        <p style={{ fontSize: 13, color: '#6b7280' }}>Loading…</p>
+                      ) : overviewFilteredOrders.length === 0 ? (
+                        <p style={{ fontSize: 13, color: '#6b7280' }}>No recent orders.</p>
+                      ) : (
+                        overviewFilteredOrders.slice(0, 3).map((o) => {
+                          const customerName = o.customer?.name || 'Customer';
+                          const initials = customerName.substring(0, 2).toUpperCase();
+                          return (
+                            <div className={styles.imgOrderItem} key={o.id}>
+                              <div className={styles.imgOrderAvatar}>{initials}</div>
+                              <div className={styles.imgOrderInfo}>
+                                <div className={styles.imgOrderName}>{customerName}</div>
+                                <div className={styles.imgOrderId}>#ORD-{o.order_number || o.id}</div>
+                              </div>
+                              <div className={styles.imgOrderRight}>
+                                <div className={styles.imgOrderAmount}>₱{Number(o.total_amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 0 })}</div>
+                                <div className={styles.imgOrderStatus}>{formatOrderStatusLabel(o.status)}</div>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                    <div className={styles.imgOrderSearch}>
+                      <Search size={16} strokeWidth={2} />
+                      <input 
+                        type="search" 
+                        placeholder="Search recent orders" 
+                        value={overviewOrdersSearch}
+                        onChange={(e) => setOverviewOrdersSearch(e.target.value)}
+                      />
+                    </div>
                   </div>
                 </div>
               </>
@@ -1657,6 +1800,114 @@ export default function AdminDashboard() {
                     ))}
                   </div>
 
+                  {['shipped', 'delivered'].includes((selectedOrder.status || '').toLowerCase()) && (
+                    <div
+                      style={{
+                        marginTop: 12,
+                        padding: 12,
+                        borderRadius: 12,
+                        background: '#faf8f3',
+                        border: '1px dashed #e5b896',
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 800,
+                          letterSpacing: '0.06em',
+                          textTransform: 'uppercase',
+                          color: '#a16207',
+                          marginBottom: 10,
+                        }}
+                      >
+                        📸 Proof of Delivery
+                      </div>
+                      {selectedOrder.proof_of_delivery_image ? (
+                        <div style={{ marginBottom: 10 }}>
+                          <img
+                            src={selectedOrder.proof_of_delivery_image}
+                            alt="Proof of delivery"
+                            style={{
+                              maxWidth: '100%',
+                              maxHeight: 200,
+                              borderRadius: 8,
+                              objectFit: 'contain',
+                              background: '#fff',
+                            }}
+                            onError={(e) => { e.target.style.display = 'none'; }}
+                          />
+                          <p style={{ fontSize: 12, color: '#6b7280', marginTop: 8, margin: '8px 0 0 0' }}>
+                            Photo attached on {selectedOrder.proof_uploaded_at ? new Date(selectedOrder.proof_uploaded_at).toLocaleDateString() : 'N/A'}
+                          </p>
+                        </div>
+                      ) : (
+                        <p style={{ fontSize: 13, color: '#854d0e', margin: '0 0 10px 0' }}>
+                          No proof of delivery image uploaded yet.
+                        </p>
+                      )}
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <label
+                          style={{
+                            display: 'inline-block',
+                            padding: '8px 12px',
+                            background: '#fbbf24',
+                            color: '#78350f',
+                            border: 'none',
+                            borderRadius: 6,
+                            cursor: 'pointer',
+                            fontSize: 13,
+                            fontWeight: 600,
+                            transition: 'background 0.2s',
+                          }}
+                          onMouseEnter={(e) => { e.target.style.background = '#f59e0b'; }}
+                          onMouseLeave={(e) => { e.target.style.background = '#fbbf24'; }}
+                        >
+                          {uploadingProofOfDelivery ? 'Uploading...' : 'Select image'}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                            disabled={uploadingProofOfDelivery}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                setProofOfDeliveryFile(file);
+                              }
+                            }}
+                          />
+                        </label>
+                        {proofOfDeliveryFile && (
+                          <>
+                            <span style={{ fontSize: 12, color: '#6b7280' }}>
+                              {proofOfDeliveryFile.name}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={uploadingProofOfDelivery}
+                              onClick={handleUploadProofOfDelivery}
+                              style={{
+                                padding: '8px 12px',
+                                background: '#10b981',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: 6,
+                                cursor: uploadingProofOfDelivery ? 'not-allowed' : 'pointer',
+                                fontSize: 13,
+                                fontWeight: 600,
+                                transition: 'background 0.2s',
+                                opacity: uploadingProofOfDelivery ? 0.6 : 1,
+                              }}
+                              onMouseEnter={(e) => { if (!uploadingProofOfDelivery) e.target.style.background = '#059669'; }}
+                              onMouseLeave={(e) => { if (!uploadingProofOfDelivery) e.target.style.background = '#10b981'; }}
+                            >
+                              {uploadingProofOfDelivery ? 'Uploading...' : 'Upload'}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                     <button type="button" className={styles.secondaryBtn} onClick={() => setSelectedOrder(null)}>
                       Close
@@ -1774,20 +2025,48 @@ export default function AdminDashboard() {
                         required
                       >
                         <option value="">Select a category</option>
-                        {(categories || []).map((c) => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
+                        {categories && categories.length > 0 ? (
+                          <>
+                            {categories.map((c) => (
+                              <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                            {categorySuggestions.map((name) => (
+                              <option key={`suggestion-${name}`} value={name}>{name}</option>
+                            ))}
+                          </>
+                        ) : (
+                          FALLBACK_CATEGORIES.map((name) => (
+                            <option key={name} value={name}>{name}</option>
+                          ))
+                        )}
                       </select>
+                      {(!categories || categories.length === 0) && (
+                        <p style={{ fontSize: 12, color: '#64748b', marginTop: 8 }}>
+                          Backend categories are not loaded. These values are suggestions only; create matching categories in the Categories page before submitting.
+                        </p>
+                      )}
+                      {categories && categories.length > 0 && categorySuggestions.length > 0 && (
+                        <p style={{ fontSize: 12, color: '#64748b', marginTop: 8 }}>
+                          Common category suggestions are shown below the loaded categories. Selecting one will create it automatically if it does not already exist.
+                        </p>
+                      )}
                     </div>
                     <div className={styles.formGroup}>
-                      <label htmlFor="np-img" className={styles.adminLabel}>Image URL</label>
+                      <label htmlFor="np-img" className={styles.adminLabel}>Product image</label>
                       <input
                         id="np-img"
-                        type="url"
-                        value={newProduct.image}
-                        onChange={(e) => setNewProduct((p) => ({ ...p, image: e.target.value }))}
-                        placeholder="https://…"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleProductImageChange}
                       />
+                      {imagePreview && (
+                        <div className={styles.adminImagePreview}>
+                          <img
+                            src={imagePreview}
+                            alt="Selected product"
+                          />
+                        </div>
+                      )}
                     </div>
                     <div className={styles.formGroup}>
                       <span className={styles.adminLabel} id="np-sizes-label">Sizes</span>
@@ -1886,6 +2165,156 @@ export default function AdminDashboard() {
               </div>
             )}
 
+            {showProductDetailsModal && selectedProductForModal && (
+              <div
+                className={styles.modalOverlay}
+                onClick={() => {
+                  if (productApprovalLoadingId) return;
+                  setShowProductDetailsModal(false);
+                  setSelectedProductForModal(null);
+                }}
+              >
+                <div
+                  className={styles.modal}
+                  style={{ maxWidth: 540 }}
+                  onClick={(e) => e.stopPropagation()}
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="product-details-title"
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+                    <h2 id="product-details-title" style={{ marginTop: 0, marginBottom: 0 }}>Product details</h2>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowProductDetailsModal(false);
+                        setSelectedProductForModal(null);
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        fontSize: 24,
+                        cursor: 'pointer',
+                        padding: 0,
+                        color: '#6b7280',
+                      }}
+                      aria-label="Close"
+                    >
+                      ×
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
+                    <div>
+                      <img
+                        src={productImageUrl(selectedProductForModal.image) || 'https://placehold.co/300x300'}
+                        alt={selectedProductForModal.name}
+                        style={{
+                          width: '100%',
+                          aspectRatio: '1',
+                          borderRadius: 8,
+                          objectFit: 'cover',
+                          background: '#f3f4f6',
+                        }}
+                        onError={(e) => { e.target.src = 'https://placehold.co/300x300'; }}
+                      />
+                    </div>
+                    <div>
+                      <h3 style={{ marginTop: 0, marginBottom: 12, fontSize: 18, fontWeight: 600 }}>
+                        {selectedProductForModal.name}
+                      </h3>
+                      <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16, lineHeight: 1.5 }}>
+                        {selectedProductForModal.description || 'No description provided.'}
+                      </p>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+                        <div>
+                          <p style={{ fontSize: 11, color: '#9ca3af', textTransform: 'uppercase', fontWeight: 600, margin: '0 0 4px 0' }}>Category</p>
+                          <p style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>{selectedProductForModal.category?.name || '-'}</p>
+                        </div>
+                        <div>
+                          <p style={{ fontSize: 11, color: '#9ca3af', textTransform: 'uppercase', fontWeight: 600, margin: '0 0 4px 0' }}>Seller</p>
+                          <p style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>{selectedProductForModal.seller?.name || 'Urban Store'}</p>
+                        </div>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+                        <div>
+                          <p style={{ fontSize: 11, color: '#9ca3af', textTransform: 'uppercase', fontWeight: 600, margin: '0 0 4px 0' }}>Status</p>
+                          <div>
+                            {(selectedProductForModal.approval_status || 'approved') === 'pending' && (
+                              <span style={{ fontSize: 12, fontWeight: 800, color: '#b45309', background: '#fffbeb', padding: '6px 10px', borderRadius: 6, display: 'inline-block' }}>Pending</span>
+                            )}
+                            {(selectedProductForModal.approval_status || 'approved') === 'approved' && (
+                              <span style={{ fontSize: 12, fontWeight: 800, color: '#15803d', background: '#ecfdf5', padding: '6px 10px', borderRadius: 6, display: 'inline-block' }}>Live</span>
+                            )}
+                            {(selectedProductForModal.approval_status || '') === 'rejected' && (
+                              <span style={{ fontSize: 12, fontWeight: 800, color: '#b91c1c', background: '#fef2f2', padding: '6px 10px', borderRadius: 6, display: 'inline-block' }}>Rejected</span>
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          <p style={{ fontSize: 11, color: '#9ca3af', textTransform: 'uppercase', fontWeight: 600, margin: '0 0 4px 0' }}>Price</p>
+                          <p style={{ fontSize: 18, fontWeight: 700, margin: 0, color: '#1f2937' }}>₱{Number(selectedProductForModal.price || 0).toFixed(2)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 24, padding: '16px', background: '#f9fafb', borderRadius: 8 }}>
+                    <div>
+                      <p style={{ fontSize: 12, color: '#6b7280', margin: '0 0 8px 0', fontWeight: 600 }}>Stock on hand</p>
+                      <p style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>{selectedProductForModal.stock ?? 0}</p>
+                    </div>
+                    <div>
+                      <p style={{ fontSize: 12, color: '#6b7280', margin: '0 0 8px 0', fontWeight: 600 }}>Sold units</p>
+                      <p style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>0</p>
+                    </div>
+                    <div>
+                      <p style={{ fontSize: 12, color: '#6b7280', margin: '0 0 8px 0', fontWeight: 600 }}>Total amount</p>
+                      <p style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>₱0.00</p>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className={styles.secondaryBtn}
+                      disabled={productApprovalLoadingId === selectedProductForModal.id}
+                      onClick={() => {
+                        setShowProductDetailsModal(false);
+                        setSelectedProductForModal(null);
+                      }}
+                    >
+                      Close
+                    </button>
+                    {(selectedProductForModal.approval_status || 'approved') === 'pending' && (
+                      <>
+                        <button
+                          type="button"
+                          className={styles.adminBtnDeleteSoft}
+                          title="Reject listing"
+                          disabled={productApprovalLoadingId === selectedProductForModal.id}
+                          onClick={() => handleRejectProduct(selectedProductForModal.id)}
+                        >
+                          <X size={16} strokeWidth={2} aria-hidden />
+                          Reject
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.adminSaveBtn}
+                          title="Publish to store"
+                          disabled={productApprovalLoadingId === selectedProductForModal.id}
+                          onClick={() => handleApproveProduct(selectedProductForModal.id)}
+                        >
+                          <BadgeCheck size={16} strokeWidth={2} aria-hidden />
+                          Confirm
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {activeTab === 'products' && (
               <div className={styles.card}>
                 <div className={styles.cardHeader}>
@@ -1952,142 +2381,165 @@ export default function AdminDashboard() {
                   ) : filteredProducts.length === 0 ? (
                     <p className={styles.emptyState}>No products found.</p>
                   ) : (
-                    <div className={styles.usersTable}>
-                      <table>
-                        <thead>
-                          <tr>
-                            <th style={{ width: 40 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
+                      {filteredProducts.map((p) => (
+                        <div
+                          key={p.id}
+                          style={{
+                            background: '#fff',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: 12,
+                            overflow: 'hidden',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            transition: 'all 0.2s ease',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.boxShadow = 'none';
+                            e.currentTarget.style.transform = 'translateY(0)';
+                          }}
+                        >
+                          {/* Product Image */}
+                          <div style={{ position: 'relative', paddingBottom: '100%', overflow: 'hidden', background: '#f3f4f6' }}>
+                            <img
+                              src={productImageUrl(p.image) || 'https://placehold.co/240x240'}
+                              alt={p.name}
+                              style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                                cursor: 'pointer',
+                              }}
+                              onError={(e) => { e.target.src = 'https://placehold.co/240x240'; }}
+                              onClick={() => {
+                                setSelectedProductForModal(p);
+                                setShowProductDetailsModal(true);
+                              }}
+                            />
+                            {/* Checkbox overlay */}
+                            <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 10 }}>
                               <input
                                 type="checkbox"
                                 className={styles.adminTableCheckbox}
-                                checked={
-                                  filteredProducts.length > 0
-                                  && filteredProducts.every((p) => selectedProductIds.includes(p.id))
-                                }
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedProductIds(filteredProducts.map((p) => p.id));
-                                  } else {
-                                    setSelectedProductIds([]);
-                                  }
+                                checked={selectedProductIds.includes(p.id)}
+                                onChange={() => {
+                                  setSelectedProductIds((prev) => (
+                                    prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id]
+                                  ));
                                 }}
-                                aria-label="Select all visible products"
+                                aria-label={`Select ${p.name}`}
+                                style={{ cursor: 'pointer' }}
                               />
-                            </th>
-                            <th>Product</th>
-                            <th>Status</th>
-                            <th>Seller</th>
-                            <th>Category</th>
-                            <th>Stock</th>
-                            <th>Price</th>
-                            <th style={{ textAlign: 'right' }}>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredProducts.map((p) => (
-                            <tr key={p.id}>
-                              <td>
-                                <input
-                                  type="checkbox"
-                                  className={styles.adminTableCheckbox}
-                                  checked={selectedProductIds.includes(p.id)}
-                                  onChange={() => {
-                                    setSelectedProductIds((prev) => (
-                                      prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id]
-                                    ));
-                                  }}
-                                  aria-label={`Select ${p.name}`}
-                                />
-                              </td>
-                              <td>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                  <img
-                                    src={productImageUrl(p.image) || 'https://placehold.co/40x40'}
-                                    alt=""
-                                    width={46}
-                                    height={46}
-                                    className={styles.adminProductImg}
-                                    onError={(e) => { e.target.src = 'https://placehold.co/40x40'; }}
-                                  />
-                                  <span>{p.name}</span>
-                                </div>
-                              </td>
-                              <td>
-                                {(p.approval_status || 'approved') === 'pending' && (
-                                  <span style={{ fontSize: 12, fontWeight: 800, color: '#b45309', background: '#fffbeb', padding: '4px 8px', borderRadius: 8 }}>Pending</span>
-                                )}
-                                {(p.approval_status || 'approved') === 'approved' && (
-                                  <span style={{ fontSize: 12, fontWeight: 800, color: '#15803d', background: '#ecfdf5', padding: '4px 8px', borderRadius: 8 }}>Live</span>
-                                )}
-                                {(p.approval_status || '') === 'rejected' && (
-                                  <span style={{ fontSize: 12, fontWeight: 800, color: '#b91c1c', background: '#fef2f2', padding: '4px 8px', borderRadius: 8 }}>Rejected</span>
-                                )}
-                              </td>
-                              <td>{p.seller?.name || '-'}</td>
-                              <td>{p.category?.name || '-'}</td>
-                              <td>
-                                <span
-                                  className={`${styles.adminStock} ${
-                                    (p.stock ?? 0) === 0
-                                      ? styles.adminStockZero
-                                      : (p.stock ?? 0) <= 5
-                                      ? styles.adminStockLow
-                                      : ''
-                                  }`}
-                                >
+                            </div>
+                            {/* Status badge overlay */}
+                            <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 10 }}>
+                              {(p.approval_status || 'approved') === 'pending' && (
+                                <span style={{ fontSize: 11, fontWeight: 800, color: '#b45309', background: '#fffbeb', padding: '4px 10px', borderRadius: 6, display: 'inline-block' }}>Pending</span>
+                              )}
+                              {(p.approval_status || 'approved') === 'approved' && (
+                                <span style={{ fontSize: 11, fontWeight: 800, color: '#15803d', background: '#ecfdf5', padding: '4px 10px', borderRadius: 6, display: 'inline-block' }}>Live</span>
+                              )}
+                              {(p.approval_status || '') === 'rejected' && (
+                                <span style={{ fontSize: 11, fontWeight: 800, color: '#b91c1c', background: '#fef2f2', padding: '4px 10px', borderRadius: 6, display: 'inline-block' }}>Rejected</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Card Content */}
+                          <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
+                            <div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedProductForModal(p);
+                                  setShowProductDetailsModal(true);
+                                }}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  padding: 0,
+                                  cursor: 'pointer',
+                                  textAlign: 'left',
+                                  fontSize: 13,
+                                  fontWeight: 600,
+                                  color: '#1f2937',
+                                  lineHeight: 1.4,
+                                  textDecoration: 'underline',
+                                  textDecorationColor: '#2563eb',
+                                }}
+                              >
+                                {p.name}
+                              </button>
+                              <p style={{ fontSize: 12, color: '#6b7280', margin: '4px 0 0 0' }}>
+                                {p.category?.name || '-'} • {p.seller?.name || 'Urban Store'}
+                              </p>
+                            </div>
+
+                            {/* Price and Stock */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '1px solid #e5e7eb', paddingTop: 10 }}>
+                              <div>
+                                <p style={{ fontSize: 11, color: '#9ca3af', margin: 0, fontWeight: 600 }}>Price</p>
+                                <p style={{ fontSize: 16, fontWeight: 700, margin: '2px 0 0 0', color: '#1f2937' }}>₱{Number(p.price || 0).toFixed(2)}</p>
+                              </div>
+                              <div style={{ textAlign: 'right' }}>
+                                <p style={{ fontSize: 11, color: '#9ca3af', margin: 0, fontWeight: 600 }}>Stock</p>
+                                <p style={{
+                                  fontSize: 16,
+                                  fontWeight: 700,
+                                  margin: '2px 0 0 0',
+                                  color: (p.stock ?? 0) === 0 ? '#b91c1c' : (p.stock ?? 0) <= 5 ? '#b45309' : '#15803d',
+                                }}>
                                   {p.stock ?? 0}
-                                </span>
-                                {(p.stock ?? 0) > 0 && (p.stock ?? 0) <= 5 && (
-                                  <span className={styles.adminLowStockLabel}>Low Stock</span>
-                                )}
-                                {p.sales_cap_quantity ? (
-                                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
-                                    Cap: {p.sales_cap_quantity}/{p.sales_cap_period === 'year' ? 'yr' : 'mo'}
-                                  </div>
-                                ) : null}
-                              </td>
-                              <td>₱{Number(p.price || 0).toFixed(2)}</td>
-                              <td style={{ textAlign: 'right' }}>
-                                <div style={{ display: 'inline-flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                                  {(p.approval_status || 'approved') === 'pending' && (
-                                    <>
-                                      <button
-                                        type="button"
-                                        className={styles.adminSaveBtn}
-                                        title="Publish to store"
-                                        disabled={productApprovalLoadingId === p.id}
-                                        onClick={() => handleApproveProduct(p.id)}
-                                      >
-                                        <BadgeCheck size={16} strokeWidth={2} aria-hidden />
-                                        <span className={styles.adminActionText}>Publish</span>
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className={styles.adminBtnDeleteSoft}
-                                        title="Reject listing"
-                                        disabled={productApprovalLoadingId === p.id}
-                                        onClick={() => handleRejectProduct(p.id)}
-                                      >
-                                        <X size={16} strokeWidth={2} aria-hidden />
-                                        <span className={styles.adminActionText}>Reject</span>
-                                      </button>
-                                    </>
-                                  )}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div style={{ display: 'flex', gap: 6, marginTop: 'auto' }}>
+                              {(p.approval_status || 'approved') === 'pending' && (
+                                <>
                                   <button
                                     type="button"
-                                    className={styles.adminBtnArchive}
-                                    title="Archive product"
-                                    onClick={() => setConfirmDialog({ mode: 'archive-product', id: p.id })}
+                                    className={styles.adminSaveBtn}
+                                    title="Publish to store"
+                                    disabled={productApprovalLoadingId === p.id}
+                                    onClick={() => handleApproveProduct(p.id)}
+                                    style={{ flex: 1, padding: '6px 8px', fontSize: 12 }}
                                   >
-                                    <Archive size={16} strokeWidth={1.75} aria-hidden />
-                                    <span className={styles.adminActionText}>Archive</span>
+                                    <BadgeCheck size={14} strokeWidth={2} aria-hidden />
                                   </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                                  <button
+                                    type="button"
+                                    className={styles.adminBtnDeleteSoft}
+                                    title="Reject listing"
+                                    disabled={productApprovalLoadingId === p.id}
+                                    onClick={() => handleRejectProduct(p.id)}
+                                    style={{ flex: 1, padding: '6px 8px', fontSize: 12 }}
+                                  >
+                                    <X size={14} strokeWidth={2} aria-hidden />
+                                  </button>
+                                </>
+                              )}
+                              <button
+                                type="button"
+                                className={styles.adminBtnArchive}
+                                title="Archive product"
+                                onClick={() => setConfirmDialog({ mode: 'archive-product', id: p.id })}
+                                style={{ flex: 1, padding: '6px 8px', fontSize: 12 }}
+                              >
+                                <Archive size={14} strokeWidth={1.75} aria-hidden />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -2176,45 +2628,160 @@ export default function AdminDashboard() {
                           : 'No products match your search.'}
                       </p>
                     ) : (
-                      <div className={styles.usersTable}>
-                        <table>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                           <thead>
-                            <tr>
-                              <th>Product</th>
-                              <th>Category</th>
-                              <th>Stock</th>
-                              <th>Units sold</th>
-                              <th style={{ textAlign: 'right' }}>Sales total</th>
+                            <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
+                              <th style={{ padding: '14px 12px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Product</th>
+                              <th style={{ padding: '14px 12px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</th>
+                              <th style={{ padding: '14px 12px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Stock Level</th>
+                              <th style={{ padding: '14px 12px', textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Units Sold</th>
+                              <th style={{ padding: '14px 12px', textAlign: 'right', fontSize: 12, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Revenue</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {filteredInventoryRows.map((row) => (
-                              <tr key={row.id}>
-                                <td>{row.name}</td>
-                                <td>{row.category || '—'}</td>
-                                <td>
-                                  <span
-                                    className={`${styles.adminStock} ${
-                                      (row.stock ?? 0) === 0
-                                        ? styles.adminStockZero
-                                        : (row.stock ?? 0) <= 5
-                                        ? styles.adminStockLow
-                                        : ''
-                                    }`}
-                                  >
-                                    {row.stock ?? 0}
-                                  </span>
-                                </td>
-                                <td>{(row.units_sold ?? 0).toLocaleString('en-PH')}</td>
-                                <td style={{ textAlign: 'right', fontWeight: 700 }}>
-                                  ₱
-                                  {Number(row.sales_total ?? 0).toLocaleString('en-PH', {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2,
-                                  })}
-                                </td>
-                              </tr>
-                            ))}
+                            {filteredInventoryRows.map((row, idx) => {
+                              const maxStock = 100;
+                              const stockPercentage = Math.min(((row.stock ?? 0) / maxStock) * 100, 100);
+                              let stockStatus = 'In Stock';
+                              let stockBgColor = '#ecfdf5';
+                              let stockTextColor = '#15803d';
+                              let stockBarColor = '#10b981';
+
+                              if ((row.stock ?? 0) === 0) {
+                                stockStatus = 'Out of Stock';
+                                stockBgColor = '#fef2f2';
+                                stockTextColor = '#b91c1c';
+                                stockBarColor = '#ef4444';
+                              } else if ((row.stock ?? 0) <= 5) {
+                                stockStatus = 'Low Stock';
+                                stockBgColor = '#fffbeb';
+                                stockTextColor = '#b45309';
+                                stockBarColor = '#f59e0b';
+                              }
+
+                              return (
+                                <tr
+                                  key={row.id}
+                                  style={{
+                                    borderBottom: '1px solid #e5e7eb',
+                                    transition: 'all 0.2s ease',
+                                    cursor: 'pointer',
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = '#f9fafb';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = 'transparent';
+                                  }}
+                                >
+                                  {/* Product Column */}
+                                  <td style={{ padding: '16px 12px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                      <div style={{
+                                        width: 48,
+                                        height: 48,
+                                        borderRadius: 8,
+                                        background: '#f3f4f6',
+                                        overflow: 'hidden',
+                                        flexShrink: 0,
+                                      }}>
+                                        <img
+                                          src={productImageUrl(row.image) || 'https://placehold.co/48x48'}
+                                          alt={row.name}
+                                          style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            objectFit: 'cover',
+                                          }}
+                                          onError={(e) => { e.target.src = 'https://placehold.co/48x48'; }}
+                                        />
+                                      </div>
+                                      <div style={{ minWidth: 0 }}>
+                                        <div style={{ fontSize: 14, fontWeight: 600, color: '#1f2937', marginBottom: 4 }}>
+                                          {row.name}
+                                        </div>
+                                        <div style={{ fontSize: 12, color: '#9ca3af' }}>
+                                          {row.category || '—'}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+
+                                  {/* Status Badge */}
+                                  <td style={{ padding: '16px 12px' }}>
+                                    <span style={{
+                                      display: 'inline-block',
+                                      padding: '6px 12px',
+                                      borderRadius: 6,
+                                      fontSize: 12,
+                                      fontWeight: 700,
+                                      background: stockBgColor,
+                                      color: stockTextColor,
+                                      whiteSpace: 'nowrap',
+                                    }}>
+                                      {stockStatus}
+                                    </span>
+                                  </td>
+
+                                  {/* Stock Level with Progress Bar */}
+                                  <td style={{ padding: '16px 12px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                                      <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{
+                                          height: 6,
+                                          background: '#e5e7eb',
+                                          borderRadius: 3,
+                                          overflow: 'hidden',
+                                        }}>
+                                          <div
+                                            style={{
+                                              height: '100%',
+                                              width: `${stockPercentage}%`,
+                                              background: stockBarColor,
+                                              transition: 'width 0.3s ease',
+                                            }}
+                                          />
+                                        </div>
+                                      </div>
+                                      <div style={{
+                                        fontSize: 14,
+                                        fontWeight: 700,
+                                        color: '#1f2937',
+                                        minWidth: '36px',
+                                        textAlign: 'right',
+                                      }}>
+                                        {row.stock ?? 0}
+                                      </div>
+                                    </div>
+                                  </td>
+
+                                  {/* Units Sold */}
+                                  <td style={{ padding: '16px 12px', textAlign: 'center' }}>
+                                    <div style={{ fontSize: 14, fontWeight: 600, color: '#1f2937' }}>
+                                      {(row.units_sold ?? 0).toLocaleString('en-PH')}
+                                    </div>
+                                    <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+                                      sold
+                                    </div>
+                                  </td>
+
+                                  {/* Revenue */}
+                                  <td style={{ padding: '16px 12px', textAlign: 'right' }}>
+                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#1f2937' }}>
+                                      ₱
+                                      {Number(row.sales_total ?? 0).toLocaleString('en-PH', {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      })}
+                                    </div>
+                                    <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+                                      revenue
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>
@@ -2312,7 +2879,7 @@ export default function AdminDashboard() {
             {activeTab === 'customers' && (
               <div className={styles.card}>
                 <div className={styles.cardHeader}>
-                  <h2>Customers</h2>
+                  <h2>Users</h2>
                 </div>
                 <div className={styles.cardBody}>
                   <div className={styles.adminTableSearchRow}>
@@ -2322,7 +2889,7 @@ export default function AdminDashboard() {
                         type="search"
                         value={customersSearch}
                         onChange={(e) => setCustomersSearch(e.target.value)}
-                        placeholder="Search customers by name, email, or phone…"
+                        placeholder="Search users by name, email, or phone…"
                       />
                     </div>
                   </div>
@@ -2336,7 +2903,7 @@ export default function AdminDashboard() {
                     </div>
                   )}
                   {dataLoading ? (
-                    <p>Loading customers...</p>
+                    <p>Loading users...</p>
                   ) : filteredCustomerUsers.length > 0 ? (
                     <div className={styles.usersTable}>
                       <table>
@@ -2357,7 +2924,7 @@ export default function AdminDashboard() {
                                     setSelectedCustomerIds([]);
                                   }
                                 }}
-                                aria-label="Select all visible customers"
+                                aria-label="Select all visible users"
                               />
                             </th>
                             <th>Name</th>
@@ -2375,6 +2942,7 @@ export default function AdminDashboard() {
                                   type="checkbox"
                                   className={styles.adminTableCheckbox}
                                   checked={selectedCustomerIds.includes(u.id)}
+                                  disabled={isProtectedAdminAccount(u)}
                                   onChange={() => {
                                     setSelectedCustomerIds((prev) => (
                                       prev.includes(u.id) ? prev.filter((x) => x !== u.id) : [...prev, u.id]
@@ -2389,15 +2957,19 @@ export default function AdminDashboard() {
                               <td>{new Date(u.created_at).toLocaleDateString()}</td>
                               <td style={{ textAlign: 'right' }}>
                                 <div style={{ display: 'inline-flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                                  <button
-                                    type="button"
-                                    className={styles.adminBtnArchive}
-                                    title="Archive customer"
-                                    onClick={() => setConfirmDialog({ mode: 'archive-user', id: u.id })}
-                                  >
-                                    <Archive size={16} strokeWidth={1.75} aria-hidden />
-                                    <span className={styles.adminActionText}>Archive</span>
-                                  </button>
+                                  {isProtectedAdminAccount(u) ? (
+                                    <span className={styles.adminProtectedLabel}>Protected</span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      className={styles.adminBtnArchive}
+                                      title="Archive user"
+                                      onClick={() => setConfirmDialog({ mode: 'archive-user', id: u.id })}
+                                    >
+                                      <Archive size={16} strokeWidth={1.75} aria-hidden />
+                                      <span className={styles.adminActionText}>Archive</span>
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -2406,7 +2978,7 @@ export default function AdminDashboard() {
                       </table>
                     </div>
                   ) : (
-                    <p className={styles.emptyState}>No customers found.</p>
+                    <p className={styles.emptyState}>No users found.</p>
                   )}
                 </div>
               </div>
@@ -2722,7 +3294,7 @@ export default function AdminDashboard() {
                       </div>
 
                       <div className={styles.adminArchiveSection}>
-                        <h3 className={styles.adminArchiveHeading}>Archived Customers</h3>
+                        <h3 className={styles.adminArchiveHeading}>Archived Users</h3>
                         <p className={styles.adminArchiveHint}>Accounts cannot sign in until restored.</p>
                         <div className={styles.adminTableSearchRow}>
                           <div className={styles.adminSearchWrap}>
@@ -2731,7 +3303,7 @@ export default function AdminDashboard() {
                               type="search"
                               value={archiveCustomersSearch}
                               onChange={(e) => setArchiveCustomersSearch(e.target.value)}
-                              placeholder="Search archived customers…"
+                              placeholder="Search archived users…"
                             />
                           </div>
                         </div>
@@ -2745,9 +3317,9 @@ export default function AdminDashboard() {
                           </div>
                         )}
                         {archiveLoading ? (
-                          <p className={styles.adminSettingsMuted}>Loading archived customers…</p>
+                          <p className={styles.adminSettingsMuted}>Loading archived users…</p>
                         ) : filteredArchivedUsers.length === 0 ? (
-                          <p className={styles.emptyState}>No archived customers.</p>
+                          <p className={styles.emptyState}>No archived users.</p>
                         ) : (
                           <div className={styles.usersTable}>
                             <table>
@@ -2768,7 +3340,7 @@ export default function AdminDashboard() {
                                           setSelectedArchivedCustomerIds([]);
                                         }
                                       }}
-                                      aria-label="Select all archived customers"
+                                      aria-label="Select all archived users"
                                     />
                                   </th>
                                   <th>Name</th>
@@ -2784,6 +3356,7 @@ export default function AdminDashboard() {
                                         type="checkbox"
                                         className={styles.adminTableCheckbox}
                                         checked={selectedArchivedCustomerIds.includes(u.id)}
+                                        disabled={isProtectedAdminAccount(u)}
                                         onChange={() => {
                                           setSelectedArchivedCustomerIds((prev) => (
                                             prev.includes(u.id) ? prev.filter((x) => x !== u.id) : [...prev, u.id]
@@ -2796,15 +3369,30 @@ export default function AdminDashboard() {
                                     <td>{u.email}</td>
                                     <td style={{ textAlign: 'right' }}>
                                       <div style={{ display: 'inline-flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                                        <button
-                                          type="button"
-                                          className={`${styles.adminArchiveIconBtn} ${styles.adminArchiveIconBtnRestore}`}
-                                          title="Restore"
-                                          aria-label={`Restore customer ${u.name}`}
-                                          onClick={() => handleRestoreUser(u.id)}
-                                        >
-                                          <RotateCcw size={18} strokeWidth={2} aria-hidden />
-                                        </button>
+                                        {isProtectedAdminAccount(u) ? (
+                                          <span className={styles.adminProtectedLabel}>Protected</span>
+                                        ) : (
+                                          <>
+                                            <button
+                                              type="button"
+                                              className={`${styles.adminArchiveIconBtn} ${styles.adminArchiveIconBtnRestore}`}
+                                              title="Restore"
+                                              aria-label={`Restore user ${u.name}`}
+                                              onClick={() => handleRestoreUser(u.id)}
+                                            >
+                                              <RotateCcw size={18} strokeWidth={2} aria-hidden />
+                                            </button>
+                                            <button
+                                              type="button"
+                                              className={`${styles.adminArchiveIconBtn} ${styles.adminArchiveIconBtnDelete}`}
+                                              title="Delete permanently"
+                                              aria-label={`Permanently delete user ${u.name}`}
+                                              onClick={() => handlePermanentDeleteUser(u.id)}
+                                            >
+                                              <X size={18} strokeWidth={2} aria-hidden />
+                                            </button>
+                                          </>
+                                        )}
                                       </div>
                                     </td>
                                   </tr>

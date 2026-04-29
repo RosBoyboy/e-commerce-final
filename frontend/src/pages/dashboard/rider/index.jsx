@@ -109,10 +109,11 @@ export default function RiderTasks() {
 
   useEffect(() => {
     loadStats();
+    // Poll more frequently for real-time rider assignments (every 10 seconds)
     const t = setInterval(() => {
       loadStats();
-      load();
-    }, 30000);
+      load({ silent: true });
+    }, 10000);
     return () => clearInterval(t);
   }, [load, loadStats]);
 
@@ -156,7 +157,11 @@ export default function RiderTasks() {
   };
 
   const openDetail = (order) => setDetailOrder(order);
-  const closeDetail = () => setDetailOrder(null);
+  const closeDetail = () => {
+    setDetailOrder(null);
+    // Refresh immediately when closing modal to show newly assigned orders
+    load({ silent: true });
+  };
 
   const renderOrderCard = (order, { isActive }) => {
     const addr = formatAddressForMaps(order);
@@ -264,7 +269,7 @@ export default function RiderTasks() {
       <RiderLayout activeKey="tasks">
         <h1 className={styles.riderPageTitle}>Delivery tracking</h1>
         <p className={styles.riderPageSub}>
-          See active runs, line items, and drop-off addresses. Refreshes every 30 seconds.
+          See active runs, line items, and drop-off addresses. Refreshes every 10 seconds.
         </p>
 
         {stats && (

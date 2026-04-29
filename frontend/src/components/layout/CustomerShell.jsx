@@ -9,6 +9,7 @@ import {
   MessageCircle,
   LogOut,
   Menu,
+  ShoppingBag,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useMessageUnread } from '@/context/MessageUnreadContext';
@@ -19,6 +20,7 @@ const NAV = [
   { key: 'orders', label: 'Orders', href: '/dashboard/customer?tab=orders', icon: Package },
   { key: 'wishlist', label: 'Wishlist', href: '/dashboard/customer?tab=wishlist', icon: Heart },
   { key: 'profile', label: 'Profile', href: '/dashboard/customer?tab=profile', icon: User },
+  { key: 'shop', label: 'Shop', href: '/products', icon: ShoppingBag },
   { key: 'messages', label: 'Messages', href: '/messages', icon: MessageCircle },
 ];
 

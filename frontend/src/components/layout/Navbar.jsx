@@ -15,7 +15,7 @@ export default function Navbar() {
 
   const getDashboardPath = () => {
     if (!user?.role?.name) return '/dashboard/customer';
-    const role = user.role.name;
+    const role = user.role.name?.toLowerCase();
     if (role === 'customer') return '/dashboard/customer';
     if (role === 'seller') return '/dashboard/admin';
     if (role === 'admin') return '/dashboard/admin';

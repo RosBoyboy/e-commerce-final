@@ -20,8 +20,11 @@ export function useProtectedRoute(allowedRoles = null) {
 
       // Check if user has allowed role
       if (allowedRoles) {
-        const rolesArray = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
-        if (!rolesArray.includes(user.role?.name)) {
+        const rolesArray = (Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles]).map((role) =>
+          String(role).toLowerCase(),
+        );
+        const currentRole = String(user.role?.name || '').toLowerCase();
+        if (!rolesArray.includes(currentRole)) {
           router.push('/');
         }
       }

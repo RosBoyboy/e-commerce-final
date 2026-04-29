@@ -8,14 +8,20 @@ export function productImageUrl(path) {
     if (path == null || typeof path !== 'string') return null;
     const normalized = String(path).replace(/\\/g, '/').trim();
     if (!normalized) return null;
-    if (normalized.startsWith('http://') || normalized.startsWith('https://')) return normalized;
-    const withSlash = normalized.startsWith('/') ? normalized : `/${normalized}`;
-    const base = (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BASE_PATH) || '';
-    const pathWithBase = base ? base.replace(/\/$/, '') + withSlash : withSlash;
-    if (typeof window !== 'undefined' && window.location && window.location.origin) {
-      return window.location.origin + pathWithBase;
+    if (
+      normalized.startsWith('http://') ||
+      normalized.startsWith('https://') ||
+      normalized.startsWith('data:')
+    ) {
+      return normalized;
     }
-    return pathWithBase;
+
+    const withSlash = normalized.startsWith('/') ? normalized : `/${normalized}`;
+    const apiBase =
+      (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_BASE_URL) ||
+      'http://localhost:8000/api';
+    const backendOrigin = apiBase.replace(/\/api\/?$/, '');
+    return backendOrigin.replace(/\/$/, '') + withSlash;
   } catch (_) {
     return null;
   }

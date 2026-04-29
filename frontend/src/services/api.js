@@ -81,6 +81,8 @@ export const createOrder = (payload) => api.post('/orders', payload);
 export const fetchCustomerOrders = () => api.get('/orders');
 export const updateOrderStatus = (orderId, status, extra = {}) =>
   api.patch(`/orders/${orderId}/status`, { status, ...extra });
+export const cancelCustomerOrder = (orderId) =>
+  api.patch(`/orders/${orderId}/cancel`);
 
 // Rider (fleet)
 export const fetchRiderOrders = () => api.get('/rider/orders');
@@ -119,6 +121,11 @@ export const fetchAdminOrders = () => api.get('/admin/orders');
 export const fetchAdminInventoryReport = () => api.get('/admin/inventory-report');
 export const updateAdminOrderStatus = (orderId, status) =>
   api.patch(`/admin/orders/${orderId}/status`, { status });
+export const uploadProofOfDelivery = (orderId, file) => {
+  const formData = new FormData();
+  formData.append('proof_of_delivery', file);
+  return api.post(`/admin/orders/${orderId}/proof-of-delivery`, formData);
+};
 export const assignAdminOrderRider = (orderId, riderId) =>
   api.patch(`/admin/orders/${orderId}/assign-rider`, { rider_id: riderId });
 export const fetchAdminRiders = () => api.get('/admin/riders');

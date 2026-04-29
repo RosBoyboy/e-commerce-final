@@ -22,7 +22,7 @@ const TABS = [
   { key: 'products', label: 'Products', icon: Tag },
   { key: 'inventory', label: 'Inventory', icon: Boxes },
   { key: 'categories', label: 'Categories', icon: Layers },
-  { key: 'customers', label: 'Customers', icon: UsersIcon },
+  { key: 'customers', label: 'Users', icon: UsersIcon },
   { key: 'analytics', label: 'Analytics', icon: BarChart3 },
   { key: 'settings', label: 'Settings', icon: Settings2 },
 ];
@@ -50,14 +50,14 @@ export default function AdminShell({ activeTab, onTabChange, onLogout, children 
       >
         <div className={styles.adminSidebarBrand}>
           <span className={styles.adminSidebarLogo}>urbanNxt</span>
-          <span className={styles.adminSidebarPortalLabel}>Admin console</span>
+          <span className={styles.adminSidebarPortalLabel}>ADMIN CONSOLE</span>
           <Link href="/" className={styles.adminSidebarStoreLink} onClick={() => setMobileOpen(false)}>
             View storefront
           </Link>
         </div>
         <div className={styles.adminSidebarBody}>
           <div className={styles.accountSection}>
-            <div className={styles.sectionTitle}>Menu</div>
+            <div className={styles.sectionTitle}>MENU</div>
             {TABS.map(({ key, label, icon: Icon }) => (
               <button
                 key={key}

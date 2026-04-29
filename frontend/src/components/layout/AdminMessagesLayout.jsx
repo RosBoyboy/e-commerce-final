@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Menu, MessageCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useMessageUnread } from '@/context/MessageUnreadContext';
 import { useProtectedRoute } from '@/hooks/useProtectedRoute';
+import { fetchAdminSettings } from '@/services/api';
 import styles from '@/styles/sellerPortal.module.scss';
 
 /**
@@ -13,9 +14,27 @@ import styles from '@/styles/sellerPortal.module.scss';
 export default function AdminMessagesLayout({ children }) {
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [storeName, setStoreName] = useState('urbanNxt');
   const { user, logout } = useAuth();
   const { unreadCount } = useMessageUnread();
   useProtectedRoute('admin');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchAdminSettings()
+      .then((res) => {
+        if (cancelled) return;
+        setStoreName(res.data.settings?.store_name || 'urbanNxt');
+      })
+      .catch(() => {
+        if (!cancelled) setStoreName('urbanNxt');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -45,8 +64,8 @@ export default function AdminMessagesLayout({ children }) {
         aria-label="Admin navigation"
       >
         <div className={styles.brand}>
-          <span className={styles.logo}>urbanNxt</span>
-          <span className={styles.portalLabel}>Admin</span>
+          <span className={styles.logo}>{storeName}</span>
+          <span className={styles.portalLabel}>Store chat</span>
         </div>
         <nav className={styles.nav}>
           <Link
@@ -78,7 +97,7 @@ export default function AdminMessagesLayout({ children }) {
             <div className={styles.avatar}>{user.name?.charAt(0)?.toUpperCase() || 'A'}</div>
             <div className={styles.userMeta}>
               <span className={styles.userName}>{user.name}</span>
-              <span className={styles.storeName}>Administrator</span>
+              <span className={styles.storeName}>{storeName}</span>
             </div>
           </div>
           <button type="button" className={styles.logoutBtn} onClick={handleLogout}>
@@ -97,7 +116,7 @@ export default function AdminMessagesLayout({ children }) {
             <Menu size={22} strokeWidth={1.35} aria-hidden />
           </button>
           <Link href="/dashboard/admin" className={styles.sellerMobileBrand} onClick={closeMobile}>
-            urbanNxt Admin
+            {storeName} chat
           </Link>
         </header>
         {children}

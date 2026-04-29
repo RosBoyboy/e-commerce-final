@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useCart, CartAddBlockedError } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
 import { useToast } from '@/components/ui/ToastProvider';
-import { Heart, MessageCircle } from 'lucide-react';
+import { Heart, MessageCircle, ShoppingCart, CheckCircle, AlertCircle, Truck } from 'lucide-react';
 import { fetchProduct, createConversation } from '@/services/api';
 import { productImageUrl } from '@/utils/image';
 import styles from '@/styles/products.module.scss';
@@ -132,55 +132,91 @@ export default function ProductDetail() {
           />
         </div>
         <div className={styles.detailInfo}>
+          <div className={styles.detailBadgeRow}>
+            {(product.stock ?? 0) > 0 && (product.stock ?? 0) <= 5 && (
+              <span className={`${styles.detailBadge} ${styles.badgeLowStock}`}>
+                <AlertCircle size={14} strokeWidth={2} aria-hidden />
+                Low stock ({product.stock})
+              </span>
+            )}
+            {(product.stock ?? 0) > 5 && (
+              <span className={`${styles.detailBadge} ${styles.badgeInStock}`}>
+                <CheckCircle size={14} strokeWidth={2} aria-hidden />
+                In stock
+              </span>
+            )}
+          </div>
           <div className={styles.detailTitleRow}>
-            <h1 className={styles.detailTitle}>{product.name}</h1>
+            <div>
+              <h1 className={styles.detailTitle}>{product.name}</h1>
+              <p className={styles.detailCategory}>
+                {product.category || 'Uncategorized'}
+              </p>
+            </div>
             <button
               type="button"
               className={styles.iconBtnGhost}
               onClick={() => (isInWishlist(product.id) ? removeFromWishlist(product.id) : addToWishlist(product.id))}
               aria-label={isInWishlist(product.id) ? 'Remove from wishlist' : 'Add to wishlist'}
+              title={isInWishlist(product.id) ? 'Remove from wishlist' : 'Add to wishlist'}
             >
               <Heart size={20} strokeWidth={1.5} fill={isInWishlist(product.id) ? 'currentColor' : 'none'} />
             </button>
           </div>
-          <p className={styles.detailMeta}>{product.category}</p>
-          <p className={styles.detailPrice}>₱{Number(product.price).toFixed(2)}</p>
-          <form onSubmit={handleAddToCart}>
-            <label className={styles.detailSizeLabel} htmlFor="product-size">Size</label>
-            <select
-              id="product-size"
-              value={selectedSize}
-              onChange={(e) => setSelectedSize(e.target.value)}
-              required
-              className={styles.detailSelect}
-            >
-              <option value="">Select Size</option>
-              {(Array.isArray(product.sizes) ? product.sizes : ['S', 'M', 'L', 'XL']).map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
+          <div className={styles.detailPriceSection}>
+            <p className={styles.detailPrice}>₱{Number(product.price).toFixed(2)}</p>
+            <p className={styles.detailSubtext}>Price incl. shipping</p>
+          </div>
+          <form onSubmit={handleAddToCart} className={styles.detailForm}>
+            <div className={styles.detailSizeGroup}>
+              <label className={styles.detailSizeLabel} htmlFor="product-size">Select size</label>
+              <select
+                id="product-size"
+                value={selectedSize}
+                onChange={(e) => setSelectedSize(e.target.value)}
+                required
+                className={styles.detailSelect}
+              >
+                <option value="">— Choose a size —</option>
+                {(Array.isArray(product.sizes) ? product.sizes : ['S', 'M', 'L', 'XL']).map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
             <button
               type="submit"
-              className={styles.addToCart}
-              style={{ width: '100%' }}
+              className={`${styles.addToCartBtn} ${(product.stock ?? 0) < 1 ? styles.outOfStock : ''}`}
               disabled={(product.stock ?? 0) < 1}
               aria-disabled={(product.stock ?? 0) < 1}
             >
+              <ShoppingCart size={18} strokeWidth={2} aria-hidden />
               {(product.stock ?? 0) < 1 ? 'Out of stock' : 'Add to cart'}
             </button>
           </form>
-          {product.seller_id && user?.role?.name === 'customer' && (
-            <button
-              type="button"
-              className={styles.detailMsgBtn}
-              onClick={handleMessageSeller}
-              disabled={messageSellerLoading}
-            >
-              <MessageCircle size={18} strokeWidth={1.5} aria-hidden />
-              {messageSellerLoading ? 'Opening…' : 'Message seller'}
-            </button>
-          )}
-          <Link href="/products" style={{ display: 'inline-block', marginTop: 16, color: '#2563eb', fontWeight: 600, fontSize: 14 }}>
+
+          <div className={styles.detailCtaRow}>
+            {product.seller_id && user?.role?.name === 'customer' && (
+              <button
+                type="button"
+                className={styles.detailMsgBtn}
+                onClick={handleMessageSeller}
+                disabled={messageSellerLoading}
+              >
+                <MessageCircle size={18} strokeWidth={1.5} aria-hidden />
+                {messageSellerLoading ? 'Opening…' : 'Message seller'}
+              </button>
+            )}
+          </div>
+
+          <div className={styles.detailShippingInfo}>
+            <Truck size={16} strokeWidth={1.5} aria-hidden />
+            <div>
+              <p className={styles.shippingLabel}>Free shipping nationwide</p>
+              <p className={styles.shippingSubtext}>Delivery in 2-5 business days</p>
+            </div>
+          </div>
+
+          <Link href="/products" className={styles.backLink}>
             ← Back to products
           </Link>
         </div>
